@@ -2,6 +2,7 @@ from __future__ import with_statement
 
 import os
 import logging
+import pprint
 
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp.util import run_wsgi_app
@@ -11,37 +12,49 @@ import oauth
 import gmemsess
 import foursquare
 
-import pprint
+
+TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
+
+def render_template(name, values):
+  return template.render(os.path.join(TEMPLATE, name), values)
 
 
-secret_cache = {}
+key_cache = {}
 
-def get_secret(name):
-  if name in secret_cache:
-    return secret_cache[name]
+def get_key(name, secret=False):
+  if name in key_cache:
+    return key_cache[name]
 
-  with open('%s.secret' % (name,), 'r') as f:
+  if secret:
+    extension = '.secret'
+  else:
+    extension = '.key'
+    
+  path = os.path.join('keys', '%s.%s' % (name, extension))
+  with open(path, 'r') as f:
     value = f.read()
-  secret_cache[name] = value
+  key_cache[name] = value
   return value
 
 
 class MainPage(webapp.RequestHandler):
   def get(self):
     session = gmemsess.Session(self)
-    path = os.path.join(os.path.dirname(__file__), 'templates', 'index.html')
-    host = self.request.headers['Host'].split(':')[0]
-    logging.warn('Host header: %s' % (host,))
-    logging.warn('session: %s' % (session,))
 
+    # Have we authorized this user?
     if 'user_token' in session:
       authorized = True
     else:
       authorized = False
       
-    template_values = {'gmaps_api_key': get_secret('gmaps-api-key-%s' % (host,)),
+    # Get the appropriate google maps API key; there's one for
+    # 4mapper.appspot.com and one for localhost (for testing).
+    host = self.request.headers['Host'].split(':')[0]
+    gmaps_api_key = get_key('gmaps-api-key-%s' % (host,))
+
+    template_values = {'gmaps_api_key': gmaps_api_key,
                        'authorized': authorized}
-    self.response.out.write(template.render(path, template_values))
+    self.response.out.write(render_template('index.html', template_values))
 
 
 class Authorize(webapp.RequestHandler):
