@@ -16,7 +16,7 @@ import foursquare
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
 
 def render_template(name, values):
-  return template.render(os.path.join(TEMPLATE, name), values)
+  return template.render(os.path.join(TEMPLATE_PATH, name), values)
 
 
 key_cache = {}
@@ -26,9 +26,9 @@ def get_key(name, secret=False):
     return key_cache[name]
 
   if secret:
-    extension = '.secret'
+    extension = 'secret'
   else:
-    extension = '.key'
+    extension = 'key'
     
   path = os.path.join('keys', '%s.%s' % (name, extension))
   with open(path, 'r') as f:
