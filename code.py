@@ -82,7 +82,7 @@ class FourHistory(webapp.RequestHandler):
     session = gmemsess.Session(self)
     user_token = oauth.OAuthToken.from_string(session['user_token'])
     fs = foursquare.Foursquare('BR2AXY1DFCQQD3R2ZKAWJOVUAQ4DLPH3MH1SMUQJWTKOVCNI', 'XEZHMQMDIFVTDAHVPDAAJIIRNZF0RXORSY5F31PBBQPQGJ5T')
-    history = fs.call_method('history', token=user_token)
+    history = fs.call_method('history', l=1000, token=user_token)
     self.response.headers['Content-Type'] = 'text/plain'
     pprint.pprint(history, stream=self.response.out)
     

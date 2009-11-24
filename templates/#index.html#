@@ -101,7 +101,6 @@ function do_map() {
 function centroid(data) {
   lat_sum = 0.0;
   lng_sum = 0.0;
-  console.log('datalen', data);
   for (i = 0; i < data.length; i++) {
     lat_sum += data[i].lat;
     lng_sum += data[i].lng;
