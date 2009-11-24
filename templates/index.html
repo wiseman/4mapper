@@ -1,15 +1,13 @@
 <html>
 <head>
-<link href="static/main.css" rel="stylesheet" type="text/css" />
-<style>
-body { background:#333; padding:20px; }
-#header { margin:0 auto 10px auto; width:90%; background:#ff9; border:1px solid #000; }
+<link href="static/main.css" rel="stylesheet" type="text/css">
+<style type="text/css">
+#header { margin:0 auto 10px auto; width:90%; background:#ff9; border:1px solid #000; padding: 3px;}
 #header #nav { float:right; padding:3px 10px; }
-#header h1 { padding:3px 10px 0px 10px; margin:0; }
+#header h1 { padding:0px 10px 0px 10px; margin:0; }
 #header p { padding:0px 10px 3px 10px; margin:0; }
-#footer { margin:0 auto; width:90%; border:1px solid #000; border-top:none; }
-#footer p a { color:#333; }
-#footer p { padding:5px 10px; margin:4px 0; background:#999; margin:0; }
+#footer { margin:10px auto 0px auto; width:90%; background-color: #ff9; border:1px solid #000; padding: 3px;}
+#byline { text-align: right; padding 3px 10px; font-size: 8pt;}
 </style>
 
 <title>Where have I been? &ndash; my last 250 foursquare checkins</title>
@@ -18,14 +16,14 @@ body { background:#333; padding:20px; }
 <script type="text/javascript" language="javascript" src="static/raphael-min.js"></script>
 <script type="text/javascript" language="javascript" src="static/cartographer.min.0.2jjw.js"></script>
 <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/dojo/1.3.2/dojo/dojo.xd.js" djConfig="isDebug:false"> </script>
-<script language="javascript">
+<script type="text/javascript">
 
 var cartographer; 
 
 {% if authorized %}
-var authorized = true;
+var g_authorized = true;
 {% else %}
-var authorized = false;
+var g_authorized = false;
 {% endif %}
 
 dojo.addOnLoad(load);
@@ -37,7 +35,9 @@ function load() {
     map.setCenter(new GLatLng(18, 0), 2);
     map.addControl(new GLargeMapControl());
     map.addMapType(G_PHYSICAL_MAP);
-    do_map();
+    if (g_authorized) {
+        do_map();
+    }
   }
 }
 
@@ -72,13 +72,15 @@ function map_checkins(checkins) {
             colorHover:"#fff",
             stroke:"#fff",
             popup:"reduce",
-            popupLabel:"<b>Number of checkins</b><br>"
+            popupLabel:"<b>Number of checkins<\/b><br>"
                 } );
     map.setCenter(centroid(data), Math.max(map.getZoom(),2));
   }
+  set_progress(false, '');
 }
 
 function do_map() {
+    set_progress(true, 'Getting history...');
     dojo.xhrGet({
             url: '/4/history',
             handleAs: 'json',
@@ -87,6 +89,7 @@ function do_map() {
             },
             error: function(error, args) {
                 console.warn("Error!", error, args);
+                display_error(error);
             },
             timeout: 14000,
     });
@@ -104,25 +107,92 @@ function centroid(data) {
   return GLatLng(lat_sum / data.length, lng_sum / data.length);
 }
 
+// Display an error message to the user.
+
+function display_error(html) {
+    console.warn("displaying error", html);
+    set_progress(false, '');
+    var containerNode = dojo.byId("error");
+    // Slide in the error message area.
+    dojo.animateProperty( {
+            node: "error",
+                properties: {
+                    height:        {start: "0", end: "50", unit: "px" },
+                    marginTop:     {start: "0", end: "0.2", unit: "cm"},
+                    marginBottom:  {start: "0", end: "0.2", unit: "cm"},
+                    paddingTop:    {start: "0", end: "0.2", unit: "cm"},
+                    paddingBottom: {start: "0", end: "0.2", unit: "cm"}},
+                onEnd: function() {
+                    containerNode.innerHTML = html;}
+        }).play();
+}
+
+// Turn the progress animation on or off.
+
+var progress_on = false;
+
+function set_progress(onoff, msg) {
+    if (progress_on == onoff) {
+        // If it's already in the desired state, return.
+        return;
+    }
+
+    progress_on = onoff;
+    var containerNode = dojo.byId("progress");
+    if (onoff) {
+        dojo.fadeOut({
+                    node: containerNode,
+                    onEnd: function() {
+                        containerNode.innerHTML = "<img src=\"/static/progress-anim.gif\"> " + msg;
+                        dojo.fadeIn({node: containerNode}).play();}
+            }).play();
+    } else {
+        dojo.fadeOut({
+                    node: containerNode,
+                    onEnd: function() {
+                    containerNode.innerHTML = "";
+                    dojo.fadeIn({node: containerNode}).play();
+                }
+            }).play();
+    }
+}
 
 
 </script>
 </head>
 <body onunload="GUnload()">
 <div id="header">
-<div id="nav">By <a href="http://twitter.com/lemonodor">John Wiseman</a></div>
-<h1>Where have I been? &ndash; my last 250 foursquare checkins</h1>
-<p><small><i>(Zoom in for greater detail.)</i></small></p>
+<table width="100%">
+<tr>
+<td valign="top">
+<p><b>4mapper</b> - Map your <a href="http://playfoursquare.com/">foursquare</a> checkins.</p>
+<p class="note"><i>(Zoom in for more detail!)</i></small></p>
 
 {% if not authorized %}
+<td align="right" valign="top">
 <form action="/authorize" method="POST">
-<input type="submit" value="Authorize">
+<p>Click authorize to get your foursquare checkin history:
+<input class="button" type="submit" value="Authorize">
+</p>
 </form>
+</td>
 {% endif %}
+
+</table>
+
+<!-- See set_progress. -->
+<span id="progress"></span>
+
+<!-- See display_error -->
+<div id="error">
+</div>
+
 
 </div>
 <div id="map" style="margin:0 auto; width:90%;height:80%;max-height:600px; border:1px solid #000;"></div>
 <div id="footer">
+<div id="byline">By <a href="http://twitter.com/lemonodor">John Wiseman</a>.  Uses <a href="http://code.google.com/appengine/">GAE</a>, <a href="http://cartographer.visualmotive.com/">Cartographer.js</a>, <a href="http://groups.google.com/group/foursquare-api">foursquare API</a>.
+</div>
 </div>
 
 <script type="text/javascript">

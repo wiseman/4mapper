@@ -1,27 +1,48 @@
 /* reset */
-html, body, div, span, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, abbr, acronym, address, code, del, dfn, em, img, q, dl, dt, dd, ol, ul, li, fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td {margin:0;padding:0;border:0;font-weight:inherit;font-style:inherit;font-size:100%;font-family:inherit;vertical-align:baseline;}
-body {line-height:1.5;}
-table {border-collapse:separate;border-spacing:0;}
-caption, th, td {text-align:left;font-weight:normal;}
-table, td, th {vertical-align:middle;}
-blockquote:before, blockquote:after, q:before, q:after {content:"";}
-blockquote, q {quotes:"" "";}
-a img {border:none;}
-body {font-size:75%;color:#333;background:#fff;font-family:"Helvetica Neue", Arial, Helvetica, sans-serif;}
 
-/* cartographer */
-h1 { font-size: 1.6em; font-weight:bold; }
-h2 { font-size: 1.3em; font-weight:bold; margin-top:2em; padding-top:.3em; border-top:1px dotted #d2dbe3; }
-h3 { font-size: 1.1em; font-weight:bold; text-transform:uppercase; margin-top:2em; margin-bottom:1em; background:#d2dbe3; border-top:1px solid #aaa; padding:2px;  }
-h4 { font-size: 1.0em; font-weight:bold; color:#0067bb; margin-top:1em; }
-p { margin-bottom:1em; }
-code { font-family:Courier New, Courier; font-weight:bold; color:#666; }
-dl { margin-left: 1em; }
-dl dt { font-weight: bold; }
-dl dd { padding-left:2em; }
-a { color:#0067bb; }
-ul { margin-left:20px; }
-em { font-style:italic; }
+body {
+    background: rgb(198, 227, 254);
+    margin: 20px 20px 20px 20px;
+    font-family: Tahoma;
+    font-size: 12pt;
+    font-weight: normal;
+}
+
+h1 {
+    font-size: 16pt;
+}
+
+.inputfield {
+    border: 1px solid rgb(255,255,255);
+    background: rgb(220,220,220);
+    font-size: 12pt;
+    height: 22pt;
+    width: 500px;
+}
+
+.button {
+    border: 1px solid rgb(0,0,0);
+    background: rgb(255,255,255);
+    font-size: 9pt;
+    height: 16pt;
+    vertical-align: bottom;
+}
+
+.button:active {
+    background: rgb(128,128,128);
+
+}
+
+.note {
+    font-size: 9pt;
+}
+
+#error {
+    background: rgb(250,160,160);
+    height: 0cm;
+    font-weight: bold;
+}
+
 
 div.header { margin:0 30px; max-width:700px; background:#122b33; padding-right:42px;  }
 div.header h1 a { background:transparent url(../img/cartographer_400x112_a.png) top left no-repeat; display:block; width:400px; height:112px; } 
@@ -29,10 +50,8 @@ div.header h1 a span { display:none; }
 div.content { margin:30px; border:1px solid #333; padding:20px; max-width:700px; }
 div.media { margin-top:1em; margin-bottom:1em; }
 div.media img { border:1px solid #000; }
-div.footer { border-top:1px solid #aaa; min-height:6em; background:#d2dbe3; padding:30px; } 
+/* div.footer { border-top:1px solid #aaa; min-height:6em; background:#d2dbe3; padding:30px; }  */
 
-a.download { background:#122b33; color:#fff; padding:5px 10px; text-decoration:none; }
 div#desc { padding-top:20px; border-top:2px solid #333; }
-.syntaxhighlighter { width:90% !important; padding: 10px !important; background:#fff !important; border:1px solid #ccc !important; }
 .cartographer-balloon { font-family:Verdana,Arial; font-size:11px; }
 

@@ -1,8 +1,11 @@
+# Copyright 2009 John Wiseman <jjwiseman@gmail.com>
+
 from __future__ import with_statement
 
 import os
 import logging
 import pprint
+import time
 
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp.util import run_wsgi_app
@@ -19,6 +22,10 @@ def render_template(name, values):
   return template.render(os.path.join(TEMPLATE_PATH, name), values)
 
 
+def safer_eval(s):
+  return eval(s, {'__builtins__': None}, {})
+
+
 key_cache = {}
 
 def get_key(name, secret=False):
@@ -32,12 +39,13 @@ def get_key(name, secret=False):
     
   path = os.path.join('keys', '%s.%s' % (name, extension))
   with open(path, 'r') as f:
-    value = f.read()
+    value = safer_eval(f.read())
   key_cache[name] = value
   return value
 
 
 class MainPage(webapp.RequestHandler):
+  "This is the main app page."
   def get(self):
     session = gmemsess.Session(self)
 
@@ -57,7 +65,21 @@ class MainPage(webapp.RequestHandler):
     self.response.out.write(render_template('index.html', template_values))
 
 
+def get_foursquare():
+  """Returns an instance of the foursquare API initialized with our
+  oauth info.
+  """
+  oauth_consumer_key = get_key('foursquare-oauth-consumer-key', secret=True)
+  oauth_consumer_secret = get_key('foursquare-oauth-consumer-secret', secret=True)
+  return foursquare.Foursquare(oauth_consumer_key, oauth_consumer_secret)
+   
+
 class Authorize(webapp.RequestHandler):
+  """This page is used to do the oauth dance.  It gets an app token
+  from foursquare, saves it in the session, then redirects to the
+  foursquare authorization page.  That authorization page then
+  redirects to /oauth_callback.
+  """
   def get(self):
     return self.run()
 
@@ -66,36 +88,39 @@ class Authorize(webapp.RequestHandler):
   
   def run(self):
     session = gmemsess.Session(self)
-    fs = foursquare.Foursquare('BR2AXY1DFCQQD3R2ZKAWJOVUAQ4DLPH3MH1SMUQJWTKOVCNI', 'XEZHMQMDIFVTDAHVPDAAJIIRNZF0RXORSY5F31PBBQPQGJ5T')
+    fs = get_foursquare()
     app_token = fs.call_method('request_token')
     auth_url = fs.authorize(app_token)
     session['app_token'] = app_token.to_string()
     session.save()
     self.redirect(auth_url)
 
-class OAuthCallback(webapp.RequestHandler):
-  def get(self):
-    logging.warn('got oauth callback')
-    session = gmemsess.Session(self)
-    logging.warn('session: %s' % (session,))
-    fs = foursquare.Foursquare('BR2AXY1DFCQQD3R2ZKAWJOVUAQ4DLPH3MH1SMUQJWTKOVCNI', 'XEZHMQMDIFVTDAHVPDAAJIIRNZF0RXORSY5F31PBBQPQGJ5T')
-    app_token = oauth.OAuthToken.from_string(session['app_token'])
-    logging.warn('app token: %s' % (app_token,))
 
+class OAuthCallback(webapp.RequestHandler):
+  """This is our oauth callback, which the foursquare authorization
+  page will redirect to.  It gets the user token from foursquare,
+  saves it in the session, and redirects to the main page.
+  """
+  def get(self):
+    session = gmemsess.Session(self)
+    fs = get_foursquare()
+    app_token = oauth.OAuthToken.from_string(session['app_token'])
     user_token = fs.call_method('access_token', app_token)
-    logging.warn('user token1: %s' % (user_token,))
     session['user_token'] = user_token.to_string()
     session.save()
-    logging.warn('user token2: %s' % (session['user_token'],))
     self.redirect('/')
 
 class FourHistory(webapp.RequestHandler):
+  """This is an Ajax endpoint that returns a user's checkin history.
+  Requires foursquare authorization.
+  """
   def get(self):
-    logging.info('FourHistory')
     session = gmemsess.Session(self)
+    fs = get_foursquare()
     user_token = oauth.OAuthToken.from_string(session['user_token'])
-    fs = foursquare.Foursquare('BR2AXY1DFCQQD3R2ZKAWJOVUAQ4DLPH3MH1SMUQJWTKOVCNI', 'XEZHMQMDIFVTDAHVPDAAJIIRNZF0RXORSY5F31PBBQPQGJ5T')
+    start_time = time.time()
     history = fs.call_method('history', l=250, token=user_token)
+    logging.info('history took %.3f s' % (time.time() - start_time,))
     self.response.headers['Content-Type'] = 'text/plain'
     pprint.pprint(history, stream=self.response.out)
     
@@ -111,4 +136,3 @@ def main():
     
 if __name__ == "__main__":
   main()
-                                
