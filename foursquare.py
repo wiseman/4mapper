@@ -167,6 +167,14 @@ FOURSQUARE_METHODS = {
         'returns'     : CHECKINS,
         'url_template': API_URL_TEMPLATE,
     },
+    'checkins': {
+        'http_headers': None,
+        'http_method' : 'GET',
+        'optional'    : ['cityid'],
+        'required'    : [],
+        'returns'     : CHECKINS,
+        'url_template': API_URL_TEMPLATE,
+    },
 }
 
 

@@ -54,10 +54,12 @@ function map_checkins(checkins) {
     data = [];
     n = 0;
     for (i = 0; i < checkins.length; i++) {
-        venue = checkins[i].venue[0];
-        if (typeof(venue.geolat) != "undefined") {
-            data[n] = {lat: venue.geolat, lng: venue.geolong, val: 1, label: venue.name};
-            n += 1;
+        if (typeof(checkins[i].venue) != "undefined" && checkins[i].venue.length > 0) {
+            venue = checkins[i].venue[0];
+            if (typeof(venue.geolat) != "undefined") {
+                data[n] = {lat: venue.geolat, lng: venue.geolong, val: 1, label: venue.name};
+                n += 1;
+            }
         }
     }
 
@@ -101,7 +103,6 @@ function do_map() {
 function centroid(data) {
   lat_sum = 0.0;
   lng_sum = 0.0;
-  console.log('datalen', data);
   for (i = 0; i < data.length; i++) {
     lat_sum += data[i].lat;
     lng_sum += data[i].lng;
