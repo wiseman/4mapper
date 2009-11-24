@@ -99,9 +99,29 @@ def date(s):
     # TODO: Generate fixed-offset tzinfo
     return datetime.datetime(*map(int, bits))
 
-
+def boolean(s):
+    s = s.lower()
+    return s == 'true'
+    
 # Return types
-VENUE = 'venue', {
+CITY_T = 'city', {
+    'id': string,
+    'name': string,
+    'geolat': geo_float,
+    'geolong': geo_float
+    }
+
+BADGE_T = 'badge', {
+    'name': string,
+    'icon': string,
+    'description': string
+    }
+
+BADGES_T = 'badges', {
+    'badge': BADGE_T
+    }
+
+VENUE_T = 'venue', {
     'id': geo_int,
     'name': string,
     'address': string,
@@ -114,15 +134,37 @@ VENUE = 'venue', {
     'phone': string
     }
 
-CHECKIN = 'checkin', {
+CHECKIN_T = 'checkin', {
     'id': string,
-    'venue': VENUE,
+    'venue': VENUE_T,
     'shout': string,
     'created': date
     }
 
-CHECKINS = 'checkins', {
-    'checkin': CHECKIN,
+SETTINGS_T = 'settings', {
+    'feeds_key': string,
+    'sendtotwitter': boolean
+    }
+
+USER_T = 'user', {
+    'id': string,
+    'firstname': string,
+    'lastname': string,
+    'city': CITY_T,
+    'photo': string,
+    'gender': string,
+    'phone': string,
+    'email': string,
+    'twitter': string,
+    'facebook': string,
+    'friendstatus': string,
+    'checkin': CHECKIN_T,
+    'badges': BADGES_T,
+    'settings': SETTINGS_T
+    }
+
+CHECKINS_T = 'checkins', {
+    'checkin': CHECKIN_T,
     }
     
 
@@ -159,12 +201,20 @@ FOURSQUARE_METHODS = {
         'url_template': OAUTH_URL_TEMPLATE,
     },
     # Foursquare methods
+    'user':  {
+        'http_headers': None,
+        'http_method' : 'GET',
+        'optional'    : ['uid', 'badges', 'mayor'],
+        'required'    : [],
+        'returns'     : USER_T,
+        'url_template': API_URL_TEMPLATE,
+    },
     'history': {
         'http_headers': None,
         'http_method' : 'GET',
         'optional'    : LIMIT_PARAMETERS,
         'required'    : [],
-        'returns'     : CHECKINS,
+        'returns'     : CHECKINS_T,
         'url_template': API_URL_TEMPLATE,
     },
     'checkins': {
@@ -172,7 +222,7 @@ FOURSQUARE_METHODS = {
         'http_method' : 'GET',
         'optional'    : ['cityid'],
         'required'    : [],
-        'returns'     : CHECKINS,
+        'returns'     : CHECKINS_T,
         'url_template': API_URL_TEMPLATE,
     },
 }
