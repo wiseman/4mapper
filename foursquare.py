@@ -9,10 +9,10 @@ Example usage:
 >>> from foursquare import Foursquare
 >>> fs = Foursquare(YOUR_CONSUMER_KEY, YOUR_CONSUMER_SECRET)
 >>> application_token = fs.request_token()
->>> auth_url          = fs.authorize( application_token )
+>>> auth_url = fs.authorize(application_token)
 >>> print auth_url
->>> pause( 'Please authorize the app at that URL!' )
->>> user_token        = fs.access_token( application_token )
+>>> pause('Authorize the app at that URL.')
+>>> user_token = fs.access_token(application_token)
 >>> pprint fs.history()
 """
 
@@ -27,6 +27,7 @@ import logging
 import oauth
 
 from django.utils import simplejson
+
 
 # General API setup
 API_PROTOCOL = 'http'
@@ -56,65 +57,73 @@ SPECIFIED_ERROR_EXCEPTION   = string.Template(
     '${message} (Code ${code})'
 )
 
-LIMIT_PARAMETERS = ['l']
+
+FOURSQUARE_METHODS = {}
+
+def def_method(name, server=API_SERVER, http_headers=None,
+               http_method="GET", optional=[], required=[],
+               returns=None, url_template=API_URL_TEMPLATE):
+    FOURSQUARE_METHODS[name] = {
+        'server': server,
+        'http_headers': http_headers,
+        'http_method': http_method,
+        'optional': optional,
+        'required': required,
+        'returns': returns,
+        'url_template': url_template,
+        }
 
 
-FOURSQUARE_METHODS = {
-    # OAuth methods
-    'access_token': {
-        'server'      : OAUTH_SERVER,
-        'http_headers': None,
-        'http_method' : 'GET',
-        'optional'    : [],
-        'required'    : ['token'],
-        'returns'     : 'oauth_token',
-        'url_template': OAUTH_URL_TEMPLATE,
-    },
-    'authorize': {
-        'server'      : OAUTH_SERVER,
-        'http_headers': None,
-        'http_method' : 'GET',
-        'optional'    : [],
-        'required'    : ['token'],
-        'returns'     : 'request_url',
-        'url_template': OAUTH_URL_TEMPLATE,
-    },
-    'request_token': {
-        'server'      : OAUTH_SERVER,
-        'http_headers': None,
-        'http_method' : 'GET',
-        'optional'    : [],
-        'required'    : [],
-        'returns'     : 'oauth_token',
-        'url_template': OAUTH_URL_TEMPLATE,
-    },
-    # Foursquare methods
-    'user':  {
-        'http_headers': None,
-        'http_method' : 'GET',
-        'optional'    : ['uid', 'badges', 'mayor'],
-        'required'    : [],
-        'url_template': API_URL_TEMPLATE,
-    },
-    'history': {
-        'http_headers': None,
-        'http_method' : 'GET',
-        'optional'    : LIMIT_PARAMETERS,
-        'required'    : [],
-        'url_template': API_URL_TEMPLATE,
-    },
-    'checkins': {
-        'http_headers': None,
-        'http_method' : 'GET',
-        'optional'    : ['cityid'],
-        'required'    : [],
-        'url_template': API_URL_TEMPLATE,
-    },
-}
+def_method('access_token',
+           server=OAUTH_SERVER,
+           required=['token'],
+           returns='oauth_token',
+           url_template=OAUTH_URL_TEMPLATE)
+
+def_method('authorize',
+           server=OAUTH_SERVER,
+           required=['token'],
+           returns='request_url',
+           url_template=OAUTH_URL_TEMPLATE)
+
+def_method('request_token',
+           server=OAUTH_SERVER,
+           returns='oauth_token',
+           url_template=OAUTH_URL_TEMPLATE)
+
+def_method('user',
+           required=['token'],
+           optional=['uid', 'badges', 'mayor'])
+
+def_method('history',
+           required=['token'],
+           optional=['l'])
+
+def_method('checkins',
+           optional=['cityid'])
+
+def_method('cities')
+
+def_method('checkcity',
+           required=['geolat', 'geolong'])
+
+
+
+
+
 
 
 class FoursquareException(Exception):
     pass
+
+class FoursquareRemoteException(FoursquareException):
+    def __init__(self, method, code, msg):
+        self.code = code
+        self.msg = msg
+
+    def __str__(self):
+        return 'Error signaled by remote method %s: %s (%s)' % (method, msg, code)
+
 
 # Used as a proxy for methods of the Foursquare class; when methods
 # are called, __call__ in FoursquareAccumulator is called, ultimately
@@ -168,9 +177,8 @@ class Foursquare:
         response_body = response.read()
 
         # If we've been informed of an error, raise it
-        if ( 200 != response.status ):
-            raise SPECIFIED_ERROR_EXCEPTION.substitute(message = response_body,
-                                                       code = response.status)
+        if (response.status != 200):
+            raise FoursquareRemoteException(response.status, response_body)
         
         # Return the body of the response
         return response_body
@@ -234,7 +242,7 @@ class Foursquare:
         
         # Check we have all required arguments
         if len( set( meta['required'] ) - set( kw.keys() ) ) > 0:
-            raise FireEagleException, \
+            raise FoursquareException, \
                 NULL_ARGUMENT_EXCEPTION.substitute( \
                     method = method, \
                     args   = ', '.join( meta['required'] )
