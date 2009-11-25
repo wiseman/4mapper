@@ -17,12 +17,13 @@ Example usage:
 """
 
 import datetime, httplib, re, string
-from xml.dom import minidom
 import time
+import sys
 
 import oauth
 import logging
 
+from django.utils import simplejson
 
 # General API setup
 API_PROTOCOL = 'http'
@@ -33,7 +34,7 @@ OAUTH_SERVER = 'foursquare.com'
 
 # Calling templates
 API_URL_TEMPLATE   = string.Template(
-    API_PROTOCOL + '://' + API_SERVER + '/' + API_VERSION + '/${method}'
+    API_PROTOCOL + '://' + API_SERVER + '/' + API_VERSION + '/${method}.json'
 )
 OAUTH_URL_TEMPLATE = string.Template(
     API_PROTOCOL + '://' + OAUTH_SERVER + '/oauth/${method}'
@@ -284,24 +285,8 @@ class Foursquare:
 
         # If we've been informed of an error, raise it
         if ( 200 != response.status ):
-            # Try to get the error message
-            try:
-                error_dom       = minidom.parseString( response_body )
-                response_errors = error_dom.getElementsByTagName( 'err' )
-            except: # TODO: Naked except: make this explicit!
-                response_errors = None
-            
-            # If we can't get the error message, just raise a generic one
-            if response_errors:
-                msg = SPECIFIED_ERROR_EXCEPTION.substitute( \
-                    message = response_errors[0].getAttribute( 'msg' ),
-                    code    = response_errors[0].getAttribute( 'code' )
-                )
-            else:
-                msg = UNSPECIFIED_ERROR_EXCEPTION.substitute( \
-                    status = response.status )
-            
-            raise FoursquareException, msg
+            raise SPECIFIED_ERROR_EXCEPTION.substitute(message = response_body,
+                                                       code = response.status)
         
         # Return the body of the response
         return response_body
@@ -427,11 +412,9 @@ class Foursquare:
             return oauth.OAuthToken.from_string( response )
         
         element, conversions = meta['returns']
-        response_dom         = minidom.parseString( response )
-        
-        results              = self.build_return( \
-            response_dom, element, conversions )
-        
+
+        import pprint
+        results = simplejson.loads(response)
         return results
     
 

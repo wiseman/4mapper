@@ -43,13 +43,12 @@ function load() {
 }
 
 function map_checkins(checkins) {
-    console.log('checkins', checkins);
-    checkins = checkins[0].checkin
+    checkins = checkins.checkins;
     data = [];
     n = 0;
     for (i = 0; i < checkins.length; i++) {
-        if (typeof(checkins[i].venue) != "undefined" && checkins[i].venue.length > 0) {
-            venue = checkins[i].venue[0];
+        if (typeof(checkins[i].venue) != "undefined") {
+            venue = checkins[i].venue;
             if (typeof(venue.geolat) != "undefined") {
                 data[n] = {lat: venue.geolat, lng: venue.geolong, val: 1, label: venue.name};
                 n += 1;
@@ -96,7 +95,7 @@ function do_user() {
 }
 
 function show_user(data) {
-    user = data[0];
+    user = data.user;
     name = "";
     if (typeof(user.firstname) != "undefined") {
         name = user.firstname;

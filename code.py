@@ -6,10 +6,12 @@ import os
 import logging
 import pprint
 import time
+import sys
 
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.ext.webapp import template
+from django.utils import simplejson
 
 import oauth
 import gmemsess
@@ -122,7 +124,7 @@ class FourHistory(webapp.RequestHandler):
     history = fs.call_method('history', l=250, token=user_token)
     logging.info('history took %.3f s' % (time.time() - start_time,))
     self.response.headers['Content-Type'] = 'text/plain'
-    pprint.pprint(history, stream=self.response.out)
+    self.response.out.write(simplejson.dumps(history))
 
 class FourUser(webapp.RequestHandler):
   def get(self):
@@ -133,7 +135,9 @@ class FourUser(webapp.RequestHandler):
     user = fs.call_method('user', token=user_token)
     logging.info('user took %.3f s' % (time.time() - start_time,))
     self.response.headers['Content-Type'] = 'text/plain'
-    pprint.pprint(user, stream=self.response.out)
+
+    sys.stderr.write(simplejson.dumps(user) + '\n')
+    self.response.out.write(simplejson.dumps(user))
     
 
 application = webapp.WSGIApplication([('/authorize', Authorize),
