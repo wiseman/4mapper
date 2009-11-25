@@ -143,7 +143,7 @@ CHECKIN_T = 'checkin', {
 
 SETTINGS_T = 'settings', {
     'feeds_key': string,
-    'sendtotwitter': boolean
+    #'sendtotwitter': boolean
     }
 
 USER_T = 'user', {
