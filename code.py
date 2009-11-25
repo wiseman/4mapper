@@ -67,14 +67,17 @@ class MainPage(webapp.RequestHandler):
     self.response.out.write(render_template('index.html', template_values))
 
 
-def get_foursquare():
+def get_foursquare(session):
   """Returns an instance of the foursquare API initialized with our
   oauth info.
   """
   oauth_consumer_key = get_key('foursquare-oauth-consumer-key', secret=True)
   oauth_consumer_secret = get_key('foursquare-oauth-consumer-secret', secret=True)
-  return foursquare.Foursquare(oauth_consumer_key, oauth_consumer_secret)
-   
+  fs = foursquare.Foursquare(foursquare.OAuthCredentials(oauth_consumer_key, oauth_consumer_secret))
+  if 'user_token' in session:
+    user_token = oauth.OAuthToken.from_string(session['user_token'])
+    fs.credentials.set_token(user_token)
+  return fs
 
 class Authorize(webapp.RequestHandler):
   """This page is used to do the oauth dance.  It gets an app token
@@ -90,7 +93,7 @@ class Authorize(webapp.RequestHandler):
   
   def run(self):
     session = gmemsess.Session(self)
-    fs = get_foursquare()
+    fs = get_foursquare(session)
     app_token = fs.call_method('request_token')
     auth_url = fs.authorize(app_token)
     session['app_token'] = app_token.to_string()
@@ -105,7 +108,7 @@ class OAuthCallback(webapp.RequestHandler):
   """
   def get(self):
     session = gmemsess.Session(self)
-    fs = get_foursquare()
+    fs = get_foursquare(session)
     app_token = oauth.OAuthToken.from_string(session['app_token'])
     user_token = fs.call_method('access_token', app_token)
     session['user_token'] = user_token.to_string()
@@ -118,10 +121,10 @@ class FourHistory(webapp.RequestHandler):
   """
   def get(self):
     session = gmemsess.Session(self)
-    fs = get_foursquare()
+    fs = get_foursquare(session)
     user_token = oauth.OAuthToken.from_string(session['user_token'])
     start_time = time.time()
-    history = fs.history(l=250, token=user_token)
+    history = fs.history(l=250, token=fs.credentials.get_token())
     logging.info('history took %.3f s' % (time.time() - start_time,))
     self.response.headers['Content-Type'] = 'text/plain'
     self.response.out.write(simplejson.dumps(history))
@@ -129,10 +132,9 @@ class FourHistory(webapp.RequestHandler):
 class FourUser(webapp.RequestHandler):
   def get(self):
     session = gmemsess.Session(self)
-    fs = get_foursquare()
-    user_token = oauth.OAuthToken.from_string(session['user_token'])
+    fs = get_foursquare(session)
     start_time = time.time()
-    user = fs.user(token=user_token)
+    user = fs.user(token=fs.credentials.get_token())
     logging.info('user took %.3f s' % (time.time() - start_time,))
     self.response.headers['Content-Type'] = 'text/plain'
 

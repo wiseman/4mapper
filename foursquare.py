@@ -13,20 +13,31 @@ Example usage:
 >>> print auth_url
 >>> pause('Authorize the app at that URL.')
 >>> user_token = fs.access_token(application_token)
->>> pprint fs.history()
+>>> pprint fs.history(token=user_token)
 """
 
 import datetime
 import httplib
-import re
+import urllib
 import string
 import time
 import sys
 import logging
+import base64
 
 import oauth
 
-from django.utils import simplejson
+try:
+    # Python 2.6?
+    import json
+    simplejson = json
+except ImportError:
+    try: 
+        # Have simplejson?
+        import simplejson
+    except ImportError:
+        # Have django or are running in the Google App Engine?
+        from django.utils import simplejson
 
 
 # General API setup
@@ -62,13 +73,13 @@ SPECIFIED_ERROR_EXCEPTION   = string.Template(
 
 FOURSQUARE_METHODS = {}
 
-def def_method(name, auth_required=False, server=API_SERVER, http_headers=None,
+def def_method(name, auth_required=False, server=API_SERVER,
                http_method="GET", optional=[], required=[],
                returns=None, url_template=API_URL_TEMPLATE):
     FOURSQUARE_METHODS[name] = {
         'server': server,
-        'http_headers': http_headers,
         'http_method': http_method,
+        'auth_required': auth_required,
         'optional': optional,
         'required': required,
         'returns': returns,
@@ -198,16 +209,83 @@ def_method('test')
 
 
 
+class Credentials:
+    pass
+
+class OAuthCredentials(Credentials):
+    def __init__(self, consumer_key, consumer_secret):
+        self.consumer_key = consumer_key
+        self.consumer_key = consumer_key
+        self.oauth_consumer = oauth.OAuthConsumer(consumer_key, consumer_secret)
+        self.signature_method = oauth.OAuthSignatureMethod_HMAC_SHA1()
+        self.token = None
+        
+    def build_request(self, token, http_method, url, parameters):
+        request = oauth.OAuthRequest.from_consumer_and_token(
+            self.oauth_consumer,
+            token=token,
+            http_method=http_method,
+            http_url=url,
+            parameters=parameters)
+        request.sign_request(self.signature_method, self.oauth_consumer, token)
+        return request.to_url(), request.to_postdata(), {}
+
+    def set_token(self, token):
+        self.token = token
+
+    def get_token(self):
+        return self.token
+
+    def authorized(self):
+        return self.token != None
+    
+        
+class BasicCredentials(Credentials):
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+
+    def build_request(self, token, http_method, url, parameters):
+        # Need to strip the newline off.
+        auth_string = base64.encodestring('%s:%s' % (self.username, self.password))[:-1]
+        query = urllib.urlencode(parameters)
+        if http_method == 'POST':
+            args = query
+        else:
+            args = None
+        return url+ '?' + query, args, {'Authorization': 'Basic %s' % (auth_string,)}
+
+    def authorized(self):
+        return True
+
+class NullCredentials(Credentials):
+    def __init__(self):
+        pass
+    def authorized(self):
+        return False
+    def build_request(self, token, http_method, url, parameters):
+        query = urllib.urlencode(parameters)
+        if http_method == 'POST':
+            args = query
+        else:
+            args = None
+        return url + '?' + query, args, {}
+
+
+                
+    
 class FoursquareException(Exception):
     pass
 
 class FoursquareRemoteException(FoursquareException):
     def __init__(self, method, code, msg):
+        self.method = method
         self.code = code
         self.msg = msg
 
     def __str__(self):
-        return 'Error signaled by remote method %s: %s (%s)' % (method, msg, code)
+        return 'Error signaled by remote method %s: %s (%s)' % (self.method, self.msg, self.code)
+
 
 
 # Used as a proxy for methods of the Foursquare class; when methods
@@ -226,112 +304,73 @@ class FoursquareAccumulator:
     
 
 class Foursquare:
-    def __init__(self, consumer_key, consumer_secret):
+    def __init__(self, credentials=None):
         # Prepare object lifetime variables
-        self.consumer_key = consumer_key
-        self.consumer_secret  = consumer_secret
-        self.oauth_consumer   = oauth.OAuthConsumer(
-            self.consumer_key, 
-            self.consumer_secret
-        )
-        self.signature_method = oauth.OAuthSignatureMethod_HMAC_SHA1()
+        if credentials:
+            self.credentials = credentials
+        else:
+            self.credentials = NullCredentials()
 
         # Prepare the accumulators for each method
-        for method, _ in FOURSQUARE_METHODS.items():
-            if not hasattr( self, method ):
-                setattr( self, method, FoursquareAccumulator( self, method ))
+        for method in FOURSQUARE_METHODS:
+            if not hasattr(self, method):
+                setattr(self, method, FoursquareAccumulator(self, method))
 
     def get_http_connection(self, server):
         return httplib.HTTPConnection(server)
         
     
-    def fetch_response( self, server, http_method, url, \
-            body = None, headers = None ):
-        """Pass a request to the server and return the response as a string"""
-        
+    def fetch_response(self, server, http_method, url, body=None, headers=None):
+        """Pass a request to the server and return the response as a
+        string.
+        """
         http_connection = self.get_http_connection(server)
 
         # Prepare the request
-        if ( body is not None ) or ( headers is not None ):
-            http_connection.request( http_method, url, body, headers )
+        if (body is not None) or (headers is not None):
+            http_connection.request(http_method, url, body, headers)
         else:
-            http_connection.request( http_method, url )
+            http_connection.request(http_method, url)
         
         # Get the response
-        response      = http_connection.getresponse()
+        response = http_connection.getresponse()
         response_body = response.read()
 
         # If we've been informed of an error, raise it
-        if (response.status != 200):
-            raise FoursquareRemoteException(response.status, response_body)
+        if response.status != 200:
+            raise FoursquareRemoteException(url, response.status, response_body)
         
         # Return the body of the response
         return response_body
     
-    def build_return( self, dom_element, target_element_name, conversions):
-        results = []
-        for node in dom_element.getElementsByTagName( target_element_name ):
-            data = {}
-            
-            for key, conversion in conversions.items():
-                node_key      = key.replace( '_', '-' )
-                key           = key.replace( ':', '_' )
-                data_elements = node.getElementsByTagName( node_key )
-                
-                # If conversion is a tuple, call build_return again
-                if isinstance( conversion, tuple ):
-                    child_element, child_conversions = conversion
-                    data[key] = self.build_return( \
-                        node, child_element, child_conversions \
-                    )
-                else:
-                    # If we've got multiple elements, build a 
-                    # list of conversions
-                    if data_elements and ( len( data_elements ) > 1 ):
-                        data_item = []
-                        for data_element in data_elements:
-                            data_item.append( conversion(
-                                data_element.firstChild.data
-                            ) )
-                    # If we only have one element, assume text node
-                    elif data_elements:
-                        data_item = conversion( \
-                            data_elements[0].firstChild.data
-                        )
-                    # If no elements are matched, convert the attribute
-                    else:
-                        data_item = conversion( \
-                            node.getAttribute( node_key ) \
-                        )
-                    if data_item is not None:
-                        data[key] = data_item
-                    
-            results.append( data )
-        return results
-    
-    def call_method( self, method, *args, **kw ):
-        logging.info('Calling %s' % (method,))
+
+    def call_method(self, method, *args, **kw):
+        logging.debug('Calling foursquare method %s %s %s' % (method, args, kw))
+        logging.debug('Credentials: %s' % (self.credentials,))
         
-        # Theoretically, we might want to do 'does this method exits?' checks
-        # here, but as all the aggregators are being built in __init__(),
-        # we actually don't need to: Python handles it for us.
+        # Theoretically, we might want to do 'does this method exits?'
+        # checks here, but as all the aggregators are being built in
+        # __init__(), we actually don't need to: Python handles it for
+        # us.
         meta = FOURSQUARE_METHODS[method]
+
+        if meta['auth_required'] and (not self.credentials or not self.credentials.authorized()):
+            raise FoursquareException('Remote method %s requires authorization.' % (`method`,))
         
         if args:
-            # Positional arguments are mapped to meta['required'] 
-            # and meta['optional'] in order of specification of those
+            # Positional arguments are mapped to meta['required'] and
+            # meta['optional'] in order of specification of those
             # (with required first, obviously)
             names = meta['required'] + meta['optional']
-            for i in range( len( args ) ):
+            for i in xrange(len(args)):
                 kw[names[i]] = args[i]
         
         # Check we have all required arguments
-        if len( set( meta['required'] ) - set( kw.keys() ) ) > 0:
-            raise FoursquareException, \
-                NULL_ARGUMENT_EXCEPTION.substitute( \
-                    method = method, \
-                    args   = ', '.join( meta['required'] )
-                )
+        if len(set(meta['required']) - set(kw.keys())) > 0:
+            raise FoursquareException(NULL_ARGUMENT_EXCEPTION.substitute(
+                method = method,
+                args = ', '.join(meta['required'])
+                ))
         
         # Token shouldn't be handled as a normal arg, so strip it out
         # (but make sure we have it, even if it's None)
@@ -340,47 +379,59 @@ class Foursquare:
             del kw['token']
         else:
             token = None
-        
-        # Build and sign the oauth_request
-        # NOTE: If ( token == None ), it's handled it silently
-        #       when building/signing
-        oauth_request = oauth.OAuthRequest.from_consumer_and_token(
-            self.oauth_consumer,
-            token       = token,
-            http_method = meta['http_method'],
-            http_url    = meta['url_template'].substitute( method=method ),
-            parameters  = kw
-        )
-        oauth_request.sign_request(
-            self.signature_method,
-            self.oauth_consumer,
-            token
-        )
-        
+
+
+        # Build the request.
+        cred_url, cred_args, cred_headers = self.credentials.build_request(
+            token,
+            meta['http_method'],
+            meta['url_template'].substitute(method=method),
+            parameters=kw)
+
+        print 'cred_url: %s' % (cred_url,)
+        print 'cred_args: %s' % (cred_args,)
+        print 'cred_headers: %s' % (cred_headers,)
+
         # If the return type is the request_url, simply build the URL and 
         # return it witout executing anything    
         if 'returns' in meta and meta['returns'] == 'request_url':
-            return oauth_request.to_url()
+            return cred_url
         
         server = API_SERVER
         if 'server' in meta:
             server = meta['server']
             
-        if 'POST' == meta['http_method']:
-            response = self.fetch_response(server, oauth_request.http_method, \
-                oauth_request.to_url(), oauth_request.to_postdata(), \
-                meta['http_headers'] )
+        if meta['http_method'] == 'POST':
+            print 'HAVE A POSTAH!'
+            response = self.fetch_response(server, meta['http_method'],
+                                           cred_url,
+                                           body=cred_args,
+                                           headers=cred_headers)
         else:
-            response = self.fetch_response(server, oauth_request.http_method, \
-                oauth_request.to_url() )
+            response = self.fetch_response(server, meta['http_method'],
+                                           cred_url,
+                                           headers=cred_headers)
         
         # Method returns nothing, but finished fine
         # Return the oauth token
         if 'returns' in meta and meta['returns'] == 'oauth_token':
-            return oauth.OAuthToken.from_string( response )
+            return oauth.OAuthToken.from_string(response)
         
         results = simplejson.loads(response)
         return results
     
 
 # TODO: Cached version
+
+def merge_dicts(a, b):
+    if a == None:
+        return b
+    if b == None:
+        return a
+
+    r = {}
+    for key, value in a.items():
+        r[key] = value
+    for key, value in b.items():
+        r[key] = value
+    return r
