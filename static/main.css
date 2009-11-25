@@ -28,6 +28,17 @@ h1 {
     vertical-align: bottom;
 }
 
+.progress-text {
+    vertical-align: middle;
+    margin-right: 15px;
+}
+
+.progress-image {
+    vertical-align: middle;
+}
+
+
+
 .button:active {
     background: rgb(128,128,128);
 

@@ -143,7 +143,7 @@ function set_progress(onoff, msg) {
         dojo.fadeOut({
                     node: containerNode,
                     onEnd: function() {
-                        containerNode.innerHTML = "<img src=\"/static/progress-anim.gif\"> " + msg;
+                    containerNode.innerHTML = '<span class="progress-text">' + msg + '</span>' + '<img class="progress-image" src="/static/progress-anim.gif">';
                         dojo.fadeIn({node: containerNode}).play();}
             }).play();
     } else {
@@ -171,17 +171,18 @@ function set_progress(onoff, msg) {
 {% if not authorized %}
 <td align="right" valign="top">
 <form action="/authorize" method="POST">
-<p>Click authorize to get your foursquare checkin history:
+<p>Authorize to get your foursquare history:
 <input class="button" type="submit" value="Authorize">
 </p>
 </form>
-</td>
+{% else %}
+<!-- See set_progress. -->
+<td align="right" valign="center">
+<span id="progress"></span>
 {% endif %}
+</td>
 
 </table>
-
-<!-- See set_progress. -->
-<span id="progress"></span>
 
 <!-- See display_error -->
 <div id="error">
