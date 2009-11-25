@@ -36,6 +36,7 @@ API_VERSION  = 'v1'
 
 OAUTH_SERVER = 'foursquare.com'
 
+
 # Calling templates
 API_URL_TEMPLATE   = string.Template(
     API_PROTOCOL + '://' + API_SERVER + '/' + API_VERSION + '/${method}.json'
@@ -47,6 +48,7 @@ POST_HEADERS = {
     'Content-type': 'application/x-www-form-urlencoded',
     'Accept'      : 'text/plain'
 }
+
 
 # Error templates
 NULL_ARGUMENT_EXCEPTION    = string.Template(
@@ -60,7 +62,7 @@ SPECIFIED_ERROR_EXCEPTION   = string.Template(
 
 FOURSQUARE_METHODS = {}
 
-def def_method(name, server=API_SERVER, http_headers=None,
+def def_method(name, auth_required=False, server=API_SERVER, http_headers=None,
                http_method="GET", optional=[], required=[],
                returns=None, url_template=API_URL_TEMPLATE):
     FOURSQUARE_METHODS[name] = {
@@ -74,9 +76,12 @@ def def_method(name, server=API_SERVER, http_headers=None,
         }
 
 
-def_method('access_token',
+# --------------------
+# OAuth methods
+# --------------------
+
+def_method('request_token',
            server=OAUTH_SERVER,
-           required=['token'],
            returns='oauth_token',
            url_template=OAUTH_URL_TEMPLATE)
 
@@ -86,30 +91,110 @@ def_method('authorize',
            returns='request_url',
            url_template=OAUTH_URL_TEMPLATE)
 
-def_method('request_token',
+def_method('access_token',
            server=OAUTH_SERVER,
+           required=['token'],
            returns='oauth_token',
            url_template=OAUTH_URL_TEMPLATE)
 
-def_method('user',
-           required=['token'],
-           optional=['uid', 'badges', 'mayor'])
 
-def_method('history',
-           required=['token'],
-           optional=['l'])
-
-def_method('checkins',
-           optional=['cityid'])
+# --------------------
+# Geo methods
+# --------------------
 
 def_method('cities')
 
 def_method('checkcity',
+           auth_required=True,
            required=['geolat', 'geolong'])
 
+def_method('switchcity',
+           auth_required=True,
+           http_method='POST',
+           required=['cityid'])
 
 
+# --------------------
+# Check in methods
+# --------------------
 
+def_method('checkins',
+           auth_required=True,
+           optional=['cityid'])
+
+def_method('checkin',
+           auth_required=True,
+           http_method='GET',
+           optional=['vid', 'venue', 'shout', 'private',
+                     'twitter', 'geolat', 'geolong'])
+
+def_method('history',
+           auth_required=True,
+           optional=['l'])
+
+
+# --------------------
+# User methods
+# --------------------
+
+def_method('user',
+           auth_required=True,
+           optional=['uid', 'badges', 'mayor'])
+
+def_method('friends',
+           auth_required=True,
+           optional=['uid'])
+
+
+# --------------------
+# Venue methods
+# --------------------
+
+def_method('venues',
+           required=['geolat', 'geolong'],
+           optional=['l', 'q'])
+
+def_method('venue',
+           required=['vid'])
+
+def_method('addvenue',
+           auth_required=True,
+           http_method='POST',
+           required=['name', 'address', 'crossstreet',
+                     'city', 'state', 'cityid'],
+           optional=['zip', 'phone'])
+
+
+# --------------------
+# Tip methods
+# --------------------
+
+def_method('tips',
+           required=['geolat', 'geolong'],
+           optional=['l'])
+
+def_method('addtip',
+           auth_required=True,
+           http_method='POST',
+           required=['vid', 'text'],
+           optional=['type'])
+
+
+# --------------------
+# Settings methods
+# --------------------
+
+def_method('setpings',
+           auth_required=True,
+           http_method='POST',
+           required=['self', 'uid'])
+
+
+# --------------------
+# Other methods
+# --------------------
+
+def_method('test')
 
 
 
