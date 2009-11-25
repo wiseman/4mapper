@@ -10,7 +10,7 @@
 #byline { text-align: right; padding 3px 10px; font-size: 8pt;}
 </style>
 
-<title>Where have I been? &ndash; my last 250 foursquare checkins</title>
+<title>4mapper - Map your foursquare checkins</title>
 
 <script type="text/javascript" src="http://maps.google.com/maps?file=api&v=2.x&key=ABQIAAAAy-QtcaLYn_SCweZpooQCBxRalkY-nKN85LMYBy2cKIu_ytkA0RTaMuuhU75PoP1yumnRf2gO45qz4w"></script>
 <script type="text/javascript" language="javascript" src="static/raphael-min.js"></script>
@@ -36,6 +36,7 @@ function load() {
     map.addControl(new GLargeMapControl());
     map.addMapType(G_PHYSICAL_MAP);
     if (g_authorized) {
+        do_user();
         do_map();
     }
   }
@@ -78,6 +79,35 @@ function map_checkins(checkins) {
   }
   set_progress(false, '');
 }
+
+function do_user() {
+    dojo.xhrGet({
+            url: '/4/user',
+            handleAs: 'json',
+            load: function(data, ioargs) {
+                show_user(data);
+            },
+            error: function(error, args) {
+                console.warn("Error!", error, args);
+                display_error(error);
+            },
+            timeout: 14000,
+    });
+}
+
+function show_user(data) {
+    user = data[0];
+    name = "";
+    if (typeof(user.firstname) != "undefined") {
+        name = user.firstname;
+    }
+    img = ""
+    if (typeof(user.photo) != "undefined") {
+        img = user.photo;
+    }
+    set_user(name, img);
+}
+
 
 function do_map() {
     set_progress(true, 'Getting history...');
@@ -157,6 +187,15 @@ function set_progress(onoff, msg) {
     }
 }
 
+function set_user(name, img) {
+    var containerNode = dojo.byId("user");
+    dojo.fadeOut({
+            node: containerNode,
+                onEnd: function() {
+                containerNode.innerHTML = '<span class="progress-text">Hi, ' + name + '!</span> ' + '<img class="progress-image" src="' + img + '">';
+                dojo.fadeIn({node: containerNode}).play();}
+        }).play();
+}
 
 </script>
 </head>
@@ -166,7 +205,7 @@ function set_progress(onoff, msg) {
 <tr>
 <td valign="top">
 <p><b>4mapper</b> - Map your <a href="http://playfoursquare.com/">foursquare</a> checkins.</p>
-<p class="note"><i>(Zoom in for more detail!)</i></small></p>
+<p class="note"><i>(Zoom in for more detail!)</i></p>
 
 {% if not authorized %}
 <td align="right" valign="top">
@@ -179,6 +218,7 @@ function set_progress(onoff, msg) {
 <!-- See set_progress. -->
 <td align="right" valign="center">
 <span id="progress"></span>
+<span id="user"></span>
 {% endif %}
 </td>
 

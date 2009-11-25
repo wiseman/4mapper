@@ -123,11 +123,23 @@ class FourHistory(webapp.RequestHandler):
     logging.info('history took %.3f s' % (time.time() - start_time,))
     self.response.headers['Content-Type'] = 'text/plain'
     pprint.pprint(history, stream=self.response.out)
+
+class FourUser(webapp.RequestHandler):
+  def get(self):
+    session = gmemsess.Session(self)
+    fs = get_foursquare()
+    user_token = oauth.OAuthToken.from_string(session['user_token'])
+    start_time = time.time()
+    user = fs.call_method('user', token=user_token)
+    logging.info('user took %.3f s' % (time.time() - start_time,))
+    self.response.headers['Content-Type'] = 'text/plain'
+    pprint.pprint(user, stream=self.response.out)
     
 
 application = webapp.WSGIApplication([('/authorize', Authorize),
                                       ('/oauth_callback', OAuthCallback),
                                       ('/4/history', FourHistory),
+                                      ('/4/user', FourUser),
                                       ('/', MainPage)],
                                      debug=True)
 
