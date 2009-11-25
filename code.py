@@ -121,7 +121,7 @@ class FourHistory(webapp.RequestHandler):
     fs = get_foursquare()
     user_token = oauth.OAuthToken.from_string(session['user_token'])
     start_time = time.time()
-    history = fs.call_method('history', l=250, token=user_token)
+    history = fs.history(l=250, token=user_token)
     logging.info('history took %.3f s' % (time.time() - start_time,))
     self.response.headers['Content-Type'] = 'text/plain'
     self.response.out.write(simplejson.dumps(history))
@@ -132,7 +132,7 @@ class FourUser(webapp.RequestHandler):
     fs = get_foursquare()
     user_token = oauth.OAuthToken.from_string(session['user_token'])
     start_time = time.time()
-    user = fs.call_method('user', token=user_token)
+    user = fs.user(token=user_token)
     logging.info('user took %.3f s' % (time.time() - start_time,))
     self.response.headers['Content-Type'] = 'text/plain'
 
@@ -145,7 +145,8 @@ application = webapp.WSGIApplication([('/authorize', Authorize),
                                       ('/4/history', FourHistory),
                                       ('/4/user', FourUser),
                                       ('/', MainPage)],
-                                     debug=True)
+                                     #debug=True
+                                     )
 
 def main():
   run_wsgi_app(application)
