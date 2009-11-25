@@ -16,12 +16,15 @@ Example usage:
 >>> pprint fs.history()
 """
 
-import datetime, httplib, re, string
+import datetime
+import httplib
+import re
+import string
 import time
 import sys
+import logging
 
 import oauth
-import logging
 
 from django.utils import simplejson
 
@@ -52,122 +55,6 @@ NULL_ARGUMENT_EXCEPTION    = string.Template(
 SPECIFIED_ERROR_EXCEPTION   = string.Template(
     '${message} (Code ${code})'
 )
-UNSPECIFIED_ERROR_EXCEPTION = string.Template(
-    'An error occurred whilst trying to execute the requested method, and the server responded with status ${status}.'
-)
-
-# Attribute conversion functions
-string  = lambda s: s.encode('utf8')
-boolean = lambda s: 'true' == s.lower()
-
-
-def geo_int(s):
-    if s == '':
-        return None
-    else:
-        return int(s)
-    
-def geo_float(s):
-    if s == '':
-        return None
-    else:
-        return float(s)
-    
-def geo_str(s):
-    if 0 == len(s):
-        return None
-    # TODO: Would this be better served returning an array of floats?
-    return [float(bit) for bit in s.split(' ')]
-
-def date(s):
-    return time.strptime(s[:-6], '%a, %d %b %y %H:%M:%S')
-
-    # 2008-02-08T10:49:03-08:00
-    bits = re.match(r"""
-        ^(\d{4}) # Year          ($1)
-        -(\d{2}) # Month         ($2)
-        -(\d{2}) # Day           ($3)
-        T(\d{2}) # Hour          ($4)
-        :(\d{2}) # Minute        ($5)
-        :(\d{2}) # Second        ($6)
-        [+-]   # TODO: TZ offset dir ($7)
-        \d{2}  # TODO: Offset hour   ($8)
-        :\d{2} # TODO: Offset min    ($9)
-    """, s, re.VERBOSE
-    ).groups()
-    bits = [bit for bit in bits if bit is not None]
-    
-    # TODO: Generate fixed-offset tzinfo
-    return datetime.datetime(*map(int, bits))
-
-def boolean(s):
-    s = s.lower()
-    return s == 'true'
-    
-# Return types
-CITY_T = 'city', {
-    'id': string,
-    'name': string,
-    'geolat': geo_float,
-    'geolong': geo_float
-    }
-
-BADGE_T = 'badge', {
-    'name': string,
-    'icon': string,
-    'description': string
-    }
-
-BADGES_T = 'badges', {
-    'badge': BADGE_T
-    }
-
-VENUE_T = 'venue', {
-    'id': geo_int,
-    'name': string,
-    'address': string,
-    'crossstreet': string,
-    'city': string,
-    'state': string,
-    'zip': string,
-    'geolat': geo_float,
-    'geolong': geo_float,
-    'phone': string
-    }
-
-CHECKIN_T = 'checkin', {
-    'id': string,
-    'venue': VENUE_T,
-    'shout': string,
-    'created': date
-    }
-
-SETTINGS_T = 'settings', {
-    'feeds_key': string,
-    #'sendtotwitter': boolean
-    }
-
-USER_T = 'user', {
-    'id': string,
-    'firstname': string,
-    'lastname': string,
-    'city': CITY_T,
-    'photo': string,
-    'gender': string,
-    'phone': string,
-    'email': string,
-    'twitter': string,
-    'facebook': string,
-    'friendstatus': string,
-    'checkin': CHECKIN_T,
-    'badges': BADGES_T,
-    'settings': SETTINGS_T
-    }
-
-CHECKINS_T = 'checkins', {
-    'checkin': CHECKIN_T,
-    }
-    
 
 LIMIT_PARAMETERS = ['l']
 
@@ -207,7 +94,6 @@ FOURSQUARE_METHODS = {
         'http_method' : 'GET',
         'optional'    : ['uid', 'badges', 'mayor'],
         'required'    : [],
-        'returns'     : USER_T,
         'url_template': API_URL_TEMPLATE,
     },
     'history': {
@@ -215,7 +101,6 @@ FOURSQUARE_METHODS = {
         'http_method' : 'GET',
         'optional'    : LIMIT_PARAMETERS,
         'required'    : [],
-        'returns'     : CHECKINS_T,
         'url_template': API_URL_TEMPLATE,
     },
     'checkins': {
@@ -223,7 +108,6 @@ FOURSQUARE_METHODS = {
         'http_method' : 'GET',
         'optional'    : ['cityid'],
         'required'    : [],
-        'returns'     : CHECKINS_T,
         'url_template': API_URL_TEMPLATE,
     },
 }
@@ -382,15 +266,8 @@ class Foursquare:
         
         # If the return type is the request_url, simply build the URL and 
         # return it witout executing anything    
-        if 'request_url' == meta['returns']:
-            # HACK: Don't actually want to point users to yahooapis.com, so 
-            #       point them to fireeagle.com
+        if 'returns' in meta and meta['returns'] == 'request_url':
             return oauth_request.to_url()
-        #.replace( \
-        #        API_PROTOCOL + '://' + API_SERVER, \
-        #        FE_PROTOCOL  + '://' + FE_SERVER )
-        
-        print oauth_request.to_url()
         
         server = API_SERVER
         if 'server' in meta:
@@ -405,15 +282,10 @@ class Foursquare:
                 oauth_request.to_url() )
         
         # Method returns nothing, but finished fine
-        if not meta['returns']:
-            return True
         # Return the oauth token
-        elif 'oauth_token' == meta['returns']:
+        if 'returns' in meta and meta['returns'] == 'oauth_token':
             return oauth.OAuthToken.from_string( response )
         
-        element, conversions = meta['returns']
-
-        import pprint
         results = simplejson.loads(response)
         return results
     
