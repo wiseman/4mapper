@@ -135,7 +135,7 @@ def_method('checkins',
 
 def_method('checkin',
            auth_required=True,
-           http_method='GET',
+           http_method='POST',
            optional=['vid', 'venue', 'shout', 'private',
                      'twitter', 'geolat', 'geolong'])
 
