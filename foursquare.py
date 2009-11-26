@@ -228,7 +228,10 @@ class OAuthCredentials(Credentials):
             http_url=url,
             parameters=parameters)
         request.sign_request(self.signature_method, self.oauth_consumer, token)
-        return request.to_url(), request.to_postdata(), {}
+        if http_method == 'GET':
+            return request.to_url(), request.to_postdata(), {}
+        else:
+            return url, request.to_postdata(), {}
 
     def set_token(self, token):
         self.token = token
@@ -328,7 +331,7 @@ class Foursquare:
 
         # Prepare the request
         if (body is not None) or (headers is not None):
-            http_connection.request(http_method, url, body, headers)
+            http_connection.request(http_method, url, body, merge_dicts(POST_HEADERS, headers))
         else:
             http_connection.request(http_method, url)
         
@@ -388,10 +391,6 @@ class Foursquare:
             meta['url_template'].substitute(method=method),
             parameters=kw)
 
-        print 'cred_url: %s' % (cred_url,)
-        print 'cred_args: %s' % (cred_args,)
-        print 'cred_headers: %s' % (cred_headers,)
-
         # If the return type is the request_url, simply build the URL and 
         # return it witout executing anything    
         if 'returns' in meta and meta['returns'] == 'request_url':
@@ -402,7 +401,6 @@ class Foursquare:
             server = meta['server']
             
         if meta['http_method'] == 'POST':
-            print 'HAVE A POSTAH!'
             response = self.fetch_response(server, meta['http_method'],
                                            cred_url,
                                            body=cred_args,
