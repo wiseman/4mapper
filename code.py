@@ -7,15 +7,47 @@ import logging
 import pprint
 import time
 import sys
+import datetime
 
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.ext.webapp import template
 from django.utils import simplejson
+from google.appengine.ext import db
+
 
 import oauth
 import gmemsess
 import foursquare
+
+
+class FourMapperException(Exception):
+  pass
+
+
+class History(db.Model):
+  uid = db.IntegerProperty(required=True)
+  history = db.TextProperty()
+  history_date = db.DateTimeProperty()
+  public = db.BooleanProperty()
+
+
+def get_user_record(uid):
+  user_q = History.all().filter('uid =', uid)
+  logging.info('user_q: %s' % (user_q,))
+  users = user_q.fetch(2)
+  logging.info('users: %s', users)
+  if len(users) > 1:
+    logging.error('Multiple records for uid %s' % (uid,))
+
+  if len(users) > 0:
+    return users[0]
+  else:
+    return None
+
+def make_user_record(uid):
+  return History(uid=uid, public=False)
+
 
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'templates')
@@ -94,7 +126,7 @@ class Authorize(webapp.RequestHandler):
   def run(self):
     session = gmemsess.Session(self)
     fs = get_foursquare(session)
-    app_token = fsrequest_token()
+    app_token = fs.request_token()
     auth_url = fs.authorize(app_token)
     session['app_token'] = app_token.to_string()
     session.save()
@@ -122,9 +154,41 @@ class FourHistory(webapp.RequestHandler):
   def get(self):
     session = gmemsess.Session(self)
     fs = get_foursquare(session)
-    user_token = oauth.OAuthToken.from_string(session['user_token'])
     start_time = time.time()
-    history = fs.history(l=250)
+
+    # Are we getting the current user's history, in which case we'll
+    # ask foursquare so as to get the latest info, or are we
+    # retrieving someone else's history?
+    if 'uid' in self.request.arguments():
+      uid = int(self.request.get('uid'))
+      user_record = get_user_record(uid)
+      logging.info('got user record %s' % (user_record,))
+      if not user_record:
+        raise FourMapperException('No history for user %s' % (uid,))
+
+      if not user_record.public:
+        current_user = int(fs.user()['user']['id'])
+        logging.info('current: %s, uid: %s' % (`current_user`, `uid`))
+        if current_user != uid:
+          raise FourMapperException('No history for user %s.' % (uid,))
+      history = simplejson.loads(user_record.history)
+      
+    else:
+      # Get latest history for current user.
+      history = fs.history(l=250)
+
+      # Store the history.
+      user = fs.user()
+      uid = user['user']['id']
+      logging.info('Storing history for user %s (%s bytes)' % (uid, len(history)))
+      user_record = get_user_record(uid)
+      if not user_record:
+        logging.debug('(This is a new record.)')
+        user_record = make_user_record(uid)
+      user_record.history = simplejson.dumps(history)
+      user_record.date = datetime.datetime.now()
+      user_record.put()
+
     logging.info('history took %.3f s' % (time.time() - start_time,))
     self.response.headers['Content-Type'] = 'text/plain'
     self.response.out.write(simplejson.dumps(history))
