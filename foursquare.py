@@ -6,21 +6,41 @@ Based on a Fire Eagle module by Steve Marshall <steve@nascentguruism.com>.
 
 Example usage:
 
->>> from foursquare import Foursquare
->>> fs = Foursquare(YOUR_CONSUMER_KEY, YOUR_CONSUMER_SECRET)
->>> application_token = fs.request_token()
->>> auth_url = fs.authorize(application_token)
->>> print auth_url
->>> pause('Authorize the app at that URL.')
->>> user_token = fs.access_token(application_token)
->>> pprint fs.history(token=user_token)
+* No authentication
+
+>>> import foursquare
+>>> fs = foursquare.Foursquare()
+>>> fs.cities()
+{'cities': [{'geolat': 52.378900000000002, 'name': 'Amsterdam', ...}]}
+
+* Basic HTTP auth
+
+>>> import foursquare
+>>> fs = foursquare.Foursquare(foursquare.BasicCredentials(username, password))
+>>> fs.switchcity(23)
+{'data': {'status': '1', 'message': 'City switched successfully'}}
+>>> fs.switchcity(34)
+{'data': {'status': '1', 'message': 'City switched successfully'}}
+>>> fs.user()
+{'user': {'city': {'geolat': 34.0443, 'name': 'Los Angeles', ...}}}
+
+* OAuth
+
+>>> import foursquare
+>>> credentials = foursquare.OAuthCredentials(oauth_key, oauth_secret)
+>>> fs = foursquare.Foursquare(credentials)
+>>> app_token = fs.request_token()
+>>> auth_url = fs.authorize(app_token)
+>>> print "Go to %s and authorize, then continue." % (auth_url,)
+>>> user_token = fs.access_token(app_token)
+>>> credentials.set_access_token(user_token)
+>>> fs.user()
+{'user': {'city': {'geolat': 34.0443, 'name': 'Los Angeles', ...}}}
 """
 
-import datetime
 import httplib
 import urllib
 import string
-import time
 import sys
 import logging
 import base64
@@ -52,23 +72,16 @@ OAUTH_SERVER = 'foursquare.com'
 API_URL_TEMPLATE   = string.Template(
     API_PROTOCOL + '://' + API_SERVER + '/' + API_VERSION + '/${method}.json'
 )
+
 OAUTH_URL_TEMPLATE = string.Template(
     API_PROTOCOL + '://' + OAUTH_SERVER + '/oauth/${method}'
 )
+
+
 POST_HEADERS = {
     'Content-type': 'application/x-www-form-urlencoded',
     'Accept'      : 'text/plain'
 }
-
-
-# Error templates
-NULL_ARGUMENT_EXCEPTION    = string.Template(
-    'Too few arguments were supplied for the method ${method}; required arguments are: ${args}'
-)
-# TODO: Allow specification of method name and call-stack?
-SPECIFIED_ERROR_EXCEPTION   = string.Template(
-    '${message} (Code ${code})'
-)
 
 
 FOURSQUARE_METHODS = {}
@@ -208,7 +221,6 @@ def_method('setpings',
 def_method('test')
 
 
-
 class Credentials:
     pass
 
@@ -218,9 +230,11 @@ class OAuthCredentials(Credentials):
         self.consumer_key = consumer_key
         self.oauth_consumer = oauth.OAuthConsumer(consumer_key, consumer_secret)
         self.signature_method = oauth.OAuthSignatureMethod_HMAC_SHA1()
-        self.token = None
+        self.access_token = None
         
-    def build_request(self, token, http_method, url, parameters):
+    def build_request(self, http_method, url, parameters, token=None):
+        if token == None:
+            token = self.access_token
         request = oauth.OAuthRequest.from_consumer_and_token(
             self.oauth_consumer,
             token=token,
@@ -233,14 +247,14 @@ class OAuthCredentials(Credentials):
         else:
             return url, request.to_postdata(), {}
 
-    def set_token(self, token):
-        self.token = token
+    def set_access_token(self, token):
+        self.access_token = token
 
-    def get_token(self):
-        return self.token
+    def get_access_token(self):
+        return self.access_token
 
     def authorized(self):
-        return self.token != None
+        return self.access_token != None
     
         
 class BasicCredentials(Credentials):
@@ -248,7 +262,7 @@ class BasicCredentials(Credentials):
         self.username = username
         self.password = password
 
-    def build_request(self, token, http_method, url, parameters):
+    def build_request(self, http_method, url, parameters, token=None):
         # Need to strip the newline off.
         auth_string = base64.encodestring('%s:%s' % (self.username, self.password))[:-1]
         query = urllib.urlencode(parameters)
@@ -266,7 +280,7 @@ class NullCredentials(Credentials):
         pass
     def authorized(self):
         return False
-    def build_request(self, token, http_method, url, parameters):
+    def build_request(self, http_method, url, parameters, token=None):
         query = urllib.urlencode(parameters)
         if http_method == 'POST':
             args = query
@@ -275,7 +289,6 @@ class NullCredentials(Credentials):
         return url + '?' + query, args, {}
 
 
-                
     
 class FoursquareException(Exception):
     pass
@@ -318,6 +331,7 @@ class Foursquare:
         for method in FOURSQUARE_METHODS:
             if not hasattr(self, method):
                 setattr(self, method, FoursquareAccumulator(self, method))
+
 
     def get_http_connection(self, server):
         return httplib.HTTPConnection(server)
@@ -370,10 +384,16 @@ class Foursquare:
         
         # Check we have all required arguments
         if len(set(meta['required']) - set(kw.keys())) > 0:
-            raise FoursquareException(NULL_ARGUMENT_EXCEPTION.substitute(
-                method = method,
-                args = ', '.join(meta['required'])
-                ))
+            raise FoursquareException('Too few arguments were supplied for the method %s; required arguments are %s.' % (method, ', '.join(meta['required'])))
+
+        # Check that we don't have extra arguments.
+        for arg in kw:
+            if (not arg in meta['required']) and (not arg in meta['optional']):
+                raise FoursquareException('Unknown argument %s supplied to method %s; ' % \
+                                          (arg, method) + \
+                                          'required arguments are %s., optional arguments are %s.' % \
+                                          (', '.join(meta['required']),
+                                           ', '.join(meta['optional'])))
         
         # Token shouldn't be handled as a normal arg, so strip it out
         # (but make sure we have it, even if it's None)
@@ -383,13 +403,12 @@ class Foursquare:
         else:
             token = None
 
-
         # Build the request.
         cred_url, cred_args, cred_headers = self.credentials.build_request(
-            token,
             meta['http_method'],
             meta['url_template'].substitute(method=method),
-            parameters=kw)
+            kw,
+            token=token)
 
         # If the return type is the request_url, simply build the URL and 
         # return it witout executing anything    

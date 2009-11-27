@@ -76,7 +76,7 @@ def get_foursquare(session):
   fs = foursquare.Foursquare(foursquare.OAuthCredentials(oauth_consumer_key, oauth_consumer_secret))
   if 'user_token' in session:
     user_token = oauth.OAuthToken.from_string(session['user_token'])
-    fs.credentials.set_token(user_token)
+    fs.credentials.set_access_token(user_token)
   return fs
 
 class Authorize(webapp.RequestHandler):
@@ -94,7 +94,7 @@ class Authorize(webapp.RequestHandler):
   def run(self):
     session = gmemsess.Session(self)
     fs = get_foursquare(session)
-    app_token = fs.call_method('request_token')
+    app_token = fsrequest_token()
     auth_url = fs.authorize(app_token)
     session['app_token'] = app_token.to_string()
     session.save()
@@ -110,7 +110,7 @@ class OAuthCallback(webapp.RequestHandler):
     session = gmemsess.Session(self)
     fs = get_foursquare(session)
     app_token = oauth.OAuthToken.from_string(session['app_token'])
-    user_token = fs.call_method('access_token', app_token)
+    user_token = fs.access_token(app_token)
     session['user_token'] = user_token.to_string()
     session.save()
     self.redirect('/')
@@ -124,7 +124,7 @@ class FourHistory(webapp.RequestHandler):
     fs = get_foursquare(session)
     user_token = oauth.OAuthToken.from_string(session['user_token'])
     start_time = time.time()
-    history = fs.history(l=250, token=fs.credentials.get_token())
+    history = fs.history(l=250)
     logging.info('history took %.3f s' % (time.time() - start_time,))
     self.response.headers['Content-Type'] = 'text/plain'
     self.response.out.write(simplejson.dumps(history))
@@ -134,7 +134,7 @@ class FourUser(webapp.RequestHandler):
     session = gmemsess.Session(self)
     fs = get_foursquare(session)
     start_time = time.time()
-    user = fs.user(token=fs.credentials.get_token())
+    user = fs.user()
     logging.info('user took %.3f s' % (time.time() - start_time,))
     self.response.headers['Content-Type'] = 'text/plain'
 
