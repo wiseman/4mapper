@@ -102,7 +102,7 @@ function history_user_html(user_info) {
 
 function show_public_histories(data) {
     if (data.length > 0) {
-        html = "Map someone else's history:<br>";
+        html = "Map someone else's checkins:<br>";
         for (i = 0; i < data.length; i++) {
             html = html + history_user_html(data[i]);
         }
