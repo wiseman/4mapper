@@ -95,7 +95,7 @@ function do_public_histories() {
 
 function history_user_html(user_info) {
     return ' <a href="/?uid=' + user_info.uid + '">' +
-        '<img border="0" src="' + user_info.picture + '" ' +
+        '<img border="0" width="75" height="75" src="' + user_info.picture + '" ' +
         'alt="' + user_info.name + '" ' + 
         'title="' + user_info.name + '"></a>';
 }
@@ -236,7 +236,7 @@ Authorize to map your checkins:
 <span id="progress"></span>
 
 {% if do_map %}
-<span class="note">Viewing {{ map_user_name}}'s map<br><a href="http://foursquare.com/user/-{{map_uid}}"><img src="{{ map_user_photo }}"></a></span>
+<span class="note">Viewing {{ map_user_name}}'s map<br><a href="http://foursquare.com/user/-{{map_uid}}"><img width="75" height="75" src="{{ map_user_photo }}"></a></span>
 {% endif %}
 
 <td align="right" valign="center">
