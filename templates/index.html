@@ -2,19 +2,15 @@
 <head>
 <link href="static/main.css" rel="stylesheet" type="text/css">
 <style type="text/css">
-#header { margin:0 auto 10px auto; width:90%; background:#ff9; border:1px solid #000; padding: 3px;}
-#header #nav { float:right; padding:3px 10px; }
-#header h1 { padding:0px 10px 0px 10px; margin:0; }
-#header p { padding:0px 10px 3px 10px; margin:0; }
-#footer { margin:10px auto 0px auto; width:90%; background-color: #ff9; border:1px solid #000; padding: 3px;}
-#byline { text-align: right; padding 3px 10px; font-size: 8pt;}
+#footer { margin-top: 3px; background-color: #ff9; padding: 3px; border: 1px solid #000;}
+#byline { text-align: right; padding: 3px 10px; font-size: 8pt;}
 </style>
 
-<title>4mapper - Map your foursquare checkins</title>
+<title>4mapper - Mapping foursquare</title>
 
 <script type="text/javascript" src="http://maps.google.com/maps?file=api&v=2.x&key=ABQIAAAAy-QtcaLYn_SCweZpooQCBxRalkY-nKN85LMYBy2cKIu_ytkA0RTaMuuhU75PoP1yumnRf2gO45qz4w"></script>
 <script type="text/javascript" language="javascript" src="static/raphael-min.js"></script>
-<script type="text/javascript" language="javascript" src="static/cartographer.min.0.2jjw.js"></script>
+<script type="text/javascript" language="javascript" src="static/cartographer.min.0.3.js"></script>
 <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/dojo/1.3.2/dojo/dojo.xd.js" djConfig="isDebug:false"> </script>
 <script type="text/javascript">
 
@@ -26,24 +22,31 @@ var g_authorized = true;
 var g_authorized = false;
 {% endif %}
 
+var g_map_uid = {{ map_uid }};
+var g_do_map = {{ do_map_js }};
+var g_map = null;
+
+
 dojo.addOnLoad(load);
 
-
 function load() {
-  if( GBrowserIsCompatible() ) {
-    var map = new GMap2(document.getElementById("map"));
-    map.setCenter(new GLatLng(18, 0), 2);
-    map.addControl(new GLargeMapControl());
-    map.addMapType(G_PHYSICAL_MAP);
-    if (g_authorized) {
-        do_user();
-        do_map();
+    if (GBrowserIsCompatible()) {
+        g_map = new GMap2(document.getElementById("map"));
+        g_map.setCenter(new GLatLng(18, 0), 2);
+        g_map.addControl(new GLargeMapControl());
+        g_map.addMapType(G_PHYSICAL_MAP);
+
+        if (g_do_map) {
+            console.log("DOING MAP");
+            do_map(g_map_uid);
+        }
     }
-  }
+    do_public_histories();
 }
 
 function map_checkins(checkins) {
     checkins = checkins.checkins;
+    console.log('Have ' + checkins.length + ' checkins.');
     data = [];
     n = 0;
     for (i = 0; i < checkins.length; i++) {
@@ -55,73 +58,82 @@ function map_checkins(checkins) {
             }
         }
     }
+    centroid(data);
+    console.log(data);
 
   if( GBrowserIsCompatible() ) {
-    var map = new GMap2(document.getElementById("map"));
-    map.setCenter(new GLatLng(18, 0), 2);
-    map.addControl(new GLargeMapControl());
-    map.addMapType(G_PHYSICAL_MAP);
-
-    cartographer = Cartographer(map, {colorize:"#000",
-                                      colorizeAlpha:.5});
-    cartographer.cluster(data, {
-            gridSize: 35,
-            gridColor: "#c00",
-            enableGrid: false,
-            color:"#fff",
-            colorHover:"#fff",
-            stroke:"#fff",
-            popup:"reduce",
-            popupLabel:"<b>Number of checkins<\/b><br>"
-                } );
-    map.setCenter(centroid(data), Math.max(map.getZoom(),2));
+      cartographer = Cartographer(g_map, {colorize:"#000",
+                  colorizeAlpha:.5});
+      cartographer.cluster(data, {
+              gridSize: 35,
+                  gridColor: "#c00",
+                  enableGrid: false,
+                  color:"#fff",
+                  colorHover:"#fff",
+                  stroke:"#fff",
+                  popup:"reduce",
+                  popupLabel:"<b>Number of checkins<\/b><br>"
+                  } );
+      g_map.setCenter(centroid(data), Math.max(g_map.getZoom(),2));
   }
   set_progress(false, '');
 }
 
-function do_user() {
+function do_public_histories() {
     dojo.xhrGet({
-            url: '/4/user',
-            handleAs: 'json',
-            load: function(data, ioargs) {
-                show_user(data);
+            url: '/s/public',
+                handleAs: 'json',
+                load: function(data, ioargs) {
+                show_public_histories(data);
             },
-            error: function(error, args) {
+                error: function(error, args) {
                 console.warn("Error!", error, args);
                 display_error(error);
             },
-            timeout: 14000,
-    });
+                timeout: 14000,
+                });
 }
 
-function show_user(data) {
-    user = data.user;
-    name = "";
-    if (typeof(user.firstname) != "undefined") {
-        name = user.firstname;
-    }
-    img = ""
-    if (typeof(user.photo) != "undefined") {
-        img = user.photo;
-    }
-    set_user(name, img);
+function history_user_html(user_info) {
+    return ' <a href="/?uid=' + user_info.uid + '">' +
+        '<img border="0" src="' + user_info.picture + '" ' +
+        'alt="' + user_info.name + '" ' + 
+        'title="' + user_info.name + '"></a>';
 }
 
+function show_public_histories(data) {
+    if (data.length > 0) {
+        html = "Map someone else's history:<br>";
+        for (i = 0; i < data.length; i++) {
+            html = html + history_user_html(data[i]);
+        }
+        container_node = dojo.byId('public_users');
+            dojo.fadeOut({
+                    node: container_node,
+                        onEnd: function() {
+                        container_node.innerHTML = html;
+                        dojo.fadeIn({node: container_node}).play();}
+                }).play();
+    }
+}
 
-function do_map() {
+function do_map(uid) {
+    console.log('do_map1');
     set_progress(true, 'Getting history...');
+    console.log('do_map2');
     dojo.xhrGet({
-            url: '/4/history',
+            url: '/4/history?uid=' + uid,
             handleAs: 'json',
-            load: function(data, ioargs) {
+                load: function(data, ioargs) {
                 map_checkins(data);
             },
-            error: function(error, args) {
+                error: function(error, args) {
                 console.warn("Error!", error, args);
                 display_error(error);
             },
-            timeout: 14000,
-    });
+                timeout: 14000,
+                });
+    console.log('do_map3');
 }
 
 
@@ -172,7 +184,7 @@ function set_progress(onoff, msg) {
         dojo.fadeOut({
                     node: containerNode,
                     onEnd: function() {
-                    containerNode.innerHTML = '<span class="progress-text">' + msg + '</span>' + '<img class="progress-image" src="/static/progress-anim.gif">';
+                    containerNode.innerHTML = '<span class="progress-text">' + msg + '</span>';
                         dojo.fadeIn({node: containerNode}).play();}
             }).play();
     } else {
@@ -186,40 +198,53 @@ function set_progress(onoff, msg) {
     }
 }
 
-function set_user(name, img) {
-    var containerNode = dojo.byId("user");
-    dojo.fadeOut({
-            node: containerNode,
-                onEnd: function() {
-                containerNode.innerHTML = '<span class="progress-text">Hi, ' + name + '!</span> ' + '<img class="progress-image" src="' + img + '">';
-                dojo.fadeIn({node: containerNode}).play();}
-        }).play();
-}
-
 </script>
 </head>
 <body onunload="GUnload()">
-<div id="header">
-<table width="100%">
+<div>
+<table width="100%" border=0>
 <tr>
-<td valign="top">
-<p><b>4mapper</b> - Map your <a href="http://playfoursquare.com/">foursquare</a> checkins.</p>
-<p class="note"><i>(Zoom in for more detail!)</i></p>
+<td colspan="2">
+<big><b>4mapper</b> - Mapping <a href="http://playfoursquare.com/">foursquare</a></big>
+<span class="note"><i>(Zoom in for more detail!)</i></span>
 
+<td align="right"">
 {% if not authorized %}
-<td align="right" valign="top">
 <form action="/authorize" method="POST">
-<p>Authorize to get your foursquare history:
+Authorize to map your checkins:
 <input class="button" type="submit" value="Authorize">
-</p>
 </form>
 {% else %}
-<!-- See set_progress. -->
-<td align="right" valign="center">
-<span id="progress"></span>
-<span id="user"></span>
+<form action="/toggle_public" method="POST">
+<small>Your history is</small>
+{% if history_is_public %}
+<b>public</b>
+<input type="submit" value="make it private"
+{% else %}
+<b>private</b>
+<input type="submit" value="make it public"
 {% endif %}
-</td>
+<input type="hidden" name="r" value="/">
+</form>
+{% endif %}
+
+
+<tr height="100">
+<td>
+<div class="note" id="public_users"></div>
+<td>
+<!-- See set_progress. -->
+<span id="progress"></span>
+
+{% if do_map %}
+<span class="note">Viewing {{ map_user_name}}'s map<br><a href="http://foursquare.com/user/-{{map_uid}}"><img src="{{ map_user_photo }}"></a></span>
+{% endif %}
+
+<td align="right" valign="center">
+
+{% if authorized %}
+<span class="note" id="user">Hi, {{ user_name }}!<br><a href="/?uid={{ uid }}"><img class="progress-image" src="{{ user_photo }}"></a></span>
+{% endif %}
 
 </table>
 
@@ -229,11 +254,14 @@ function set_user(name, img) {
 
 
 </div>
-<div id="map" style="margin:0 auto; width:90%;height:80%;max-height:600px; border:1px solid #000;"></div>
+
+<div id="map" style="height:80%; max-height: 600px; border:1px solid #000;"></div>
+
 <div id="footer">
 <div id="byline">By <a href="http://twitter.com/lemonodor">John Wiseman</a>.  Uses <a href="http://code.google.com/appengine/">GAE</a>, <a href="http://cartographer.visualmotive.com/">Cartographer.js</a>, <a href="http://groups.google.com/group/foursquare-api">foursquare API</a>.
 </div>
 </div>
+
 
 <script type="text/javascript">
 var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");

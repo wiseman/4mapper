@@ -2,11 +2,17 @@
 
 body {
     background: rgb(198, 227, 254);
-    margin: 20px 20px 20px 20px;
+    /* margin: 20px 20px 20px 20px; */
     font-family: Tahoma;
     font-size: 12pt;
     font-weight: normal;
 }
+
+form {
+    margin: 0px 0px 0px 0px;
+    padding: 0px 0px 0px 0px;
+}
+
 
 h1 {
     font-size: 16pt;
@@ -20,14 +26,6 @@ h1 {
     width: 500px;
 }
 
-.button {
-    border: 1px solid rgb(0,0,0);
-    background: rgb(255,255,255);
-    font-size: 9pt;
-    height: 16pt;
-    vertical-align: bottom;
-}
-
 .progress-text {
     vertical-align: middle;
     margin-right: 15px;
@@ -37,6 +35,9 @@ h1 {
     vertical-align: middle;
 }
 
+#public_users {
+    font-size: 9pt;
+}
 
 
 .button:active {
@@ -55,13 +56,8 @@ h1 {
 }
 
 
-div.header { margin:0 30px; max-width:700px; background:#122b33; padding-right:42px;  }
-div.header h1 a { background:transparent url(../img/cartographer_400x112_a.png) top left no-repeat; display:block; width:400px; height:112px; } 
-div.header h1 a span { display:none; }
+div.header { max-width:700px; background:#122b33; padding-right:42px;  }
 div.content { margin:30px; border:1px solid #333; padding:20px; max-width:700px; }
-div.media { margin-top:1em; margin-bottom:1em; }
-div.media img { border:1px solid #000; }
-/* div.footer { border-top:1px solid #aaa; min-height:6em; background:#d2dbe3; padding:30px; }  */
 
 div#desc { padding-top:20px; border-top:2px solid #333; }
 .cartographer-balloon { font-family:Verdana,Arial; font-size:11px; }

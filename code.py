@@ -30,7 +30,8 @@ class History(db.Model):
   history = db.TextProperty()
   history_date = db.DateTimeProperty()
   public = db.BooleanProperty()
-
+  name = db.StringProperty()
+  picture = db.StringProperty()
 
 def get_user_record(uid):
   user_q = History.all().filter('uid =', uid)
@@ -45,8 +46,8 @@ def get_user_record(uid):
   else:
     return None
 
-def make_user_record(uid):
-  return History(uid=uid, public=False)
+def make_user_record(uid, name, picture):
+  return History(uid=uid, public=False, name=name, picture=picture)
 
 
 
@@ -83,19 +84,56 @@ class MainPage(webapp.RequestHandler):
   def get(self):
     session = gmemsess.Session(self)
 
+    do_map = False
+    map_uid = 0
+    map_user_photo = ""
+    map_user_name = ""
+    uid = 0
+    user_photo = ""
+    user_name = ""
+    authorized = False
+    history_is_public = False
+    
     # Have we authorized this user?
     if 'user_token' in session:
       authorized = True
-    else:
-      authorized = False
-      
+      do_map = True
+      map_uid = session['uid']
+      user = get_user_record(map_uid)
+      if user:
+        history_is_public = user.public
+        uid = map_uid
+        user_photo = user.picture
+        user_name = user.name
+        map_user_photo = user_photo
+        map_user_name = user_name
+    
+
     # Get the appropriate google maps API key; there's one for
     # 4mapper.appspot.com and one for localhost (for testing).
     host = self.request.headers['Host'].split(':')[0]
     gmaps_api_key = get_key('gmaps-api-key-%s' % (host,))
 
+    if 'uid' in self.request.arguments():
+      map_uid = int(self.request.get('uid'))
+      map_user = get_user_record(map_uid)
+      map_user_photo = map_user.picture
+      map_user_name = map_user.name
+      do_map = True
+
+      
     template_values = {'gmaps_api_key': gmaps_api_key,
-                       'authorized': authorized}
+                       'authorized': authorized,
+                       'history_is_public': history_is_public,
+                       'uid': uid,
+                       'map_uid': map_uid,
+                       'map_user_photo': '%s' % (map_user_photo,),
+                       'map_user_name': '%s' % (map_user_name,),
+                       'user_photo': '%s' % (user_photo,),
+                       'user_name': '%s' % (user_name,),
+                       'do_map': do_map,
+                       'do_map_js': ('%s' % (do_map,)).lower()}
+    logging.info(template_values)
     self.response.out.write(render_template('index.html', template_values))
 
 
@@ -144,6 +182,10 @@ class OAuthCallback(webapp.RequestHandler):
     app_token = oauth.OAuthToken.from_string(session['app_token'])
     user_token = fs.access_token(app_token)
     session['user_token'] = user_token.to_string()
+
+    fs.credentials.set_access_token(user_token)
+    uid = fs.user()['user']['id']
+    session['uid'] = uid
     session.save()
     self.redirect('/')
 
@@ -167,7 +209,7 @@ class FourHistory(webapp.RequestHandler):
         raise FourMapperException('No history for user %s' % (uid,))
 
       if not user_record.public:
-        current_user = int(fs.user()['user']['id'])
+        current_user = session['uid']
         logging.info('current: %s, uid: %s' % (`current_user`, `uid`))
         if current_user != uid:
           raise FourMapperException('No history for user %s.' % (uid,))
@@ -178,15 +220,16 @@ class FourHistory(webapp.RequestHandler):
       history = fs.history(l=250)
 
       # Store the history.
-      user = fs.user()
-      uid = user['user']['id']
-      logging.info('Storing history for user %s (%s bytes)' % (uid, len(history)))
+      user = fs.user()['user']
+      uid = user['id']
+      history_s = simplejson.dumps(history)
+      logging.info('Storing history for user %s (%s bytes)' % (uid, len(history_s)))
       user_record = get_user_record(uid)
       if not user_record:
         logging.debug('(This is a new record.)')
-        user_record = make_user_record(uid)
-      user_record.history = simplejson.dumps(history)
-      user_record.date = datetime.datetime.now()
+        user_record = make_user_record(uid, user['firstname'], user['photo'])
+      user_record.history = history_s
+      user_record.history_date = datetime.datetime.now()
       user_record.put()
 
     logging.info('history took %.3f s' % (time.time() - start_time,))
@@ -201,13 +244,56 @@ class FourUser(webapp.RequestHandler):
     user = fs.user()
     logging.info('user took %.3f s' % (time.time() - start_time,))
     self.response.headers['Content-Type'] = 'text/plain'
-
-    sys.stderr.write(simplejson.dumps(user) + '\n')
     self.response.out.write(simplejson.dumps(user))
+
+
+class ToggleHistoryAccess(webapp.RequestHandler):
+  def get(self):
+    session = gmemsess.Session(self)
+    user_record = get_user_record(session['uid'])
+    self.response.headers['Content-Type'] = 'text/plain'
+    self.response.out.write(simplejson.dumps(user_record.public))
+
+  def post(self):
+    session = gmemsess.Session(self)
+    fs = get_foursquare(session)
+    user = fs.user()['user']
+    uid = user['id']
+    user_record = get_user_record(uid)
+    if not user_record:
+      user_record = make_user_record(uid, user['firstname'], user['photo'])
+    logging.info('Changing public for uid %s from %s to %s' %
+                 (uid, user_record.public, not user_record.public))
+    user_record.public = not user_record.public
+    user_record.put()
+    if 'r' in self.request.arguments():
+      self.redirect(self.request.get('r'))
+    
+  
+class Logout(webapp.RequestHandler):
+  def get(self):
+    session = gmemsess.Session(self)
+    session.invalidate()
+    self.redirect('/')
+
+
+class GetPublicIds(webapp.RequestHandler):
+  def get(self):
+    user_q = History.gql('WHERE public = :1 ORDER BY history_date', True)
+    users = user_q.fetch(7)
+    logging.info(users)
+    def user_dict(user):
+      return {'name': user.name, 'uid': user.uid, 'picture': user.picture}
+    results = [user_dict(u) for u in users]
+    self.response.headers['Content-Type'] = 'text/plain'
+    self.response.out.write(simplejson.dumps(results))
     
 
 application = webapp.WSGIApplication([('/authorize', Authorize),
                                       ('/oauth_callback', OAuthCallback),
+                                      ('/logout', Logout),
+                                      ('/toggle_public', ToggleHistoryAccess),
+                                      ('/s/public', GetPublicIds),
                                       ('/4/history', FourHistory),
                                       ('/4/user', FourUser),
                                       ('/', MainPage)],
