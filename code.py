@@ -201,7 +201,8 @@ class FourHistory(webapp.RequestHandler):
     # Are we getting the current user's history, in which case we'll
     # ask foursquare so as to get the latest info, or are we
     # retrieving someone else's history?
-    if 'uid' in self.request.arguments():
+    if 'uid' in self.request.arguments() and \
+       (not 'uid' in session or int(self.request.get('uid')) != session['uid']):
       uid = int(self.request.get('uid'))
       user_record = get_user_record(uid)
       logging.info('got user record %s' % (user_record,))
@@ -230,6 +231,9 @@ class FourHistory(webapp.RequestHandler):
         user_record = make_user_record(uid, user['firstname'], user['photo'])
       user_record.history = history_s
       user_record.history_date = datetime.datetime.now()
+      logging.info('creating record %s, %s, %s' % \
+                   (user_record.uid, user_record.name, user_record.picture))
+                    
       user_record.put()
 
     logging.info('history took %.3f s' % (time.time() - start_time,))
