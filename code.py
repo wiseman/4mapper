@@ -283,7 +283,7 @@ class Logout(webapp.RequestHandler):
 
 class GetPublicIds(webapp.RequestHandler):
   def get(self):
-    user_q = History.gql('WHERE public = :1 ORDER BY history_date', True)
+    user_q = History.gql('WHERE public = :1 ORDER BY history_date DESC', True)
     users = user_q.fetch(7)
     logging.info(users)
     def user_dict(user):
