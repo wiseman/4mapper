@@ -58,23 +58,25 @@ function map_checkins(checkins) {
             }
         }
     }
-    centroid(data);
-    console.log(data);
+    if (data.length > 0) {
+        centroid(data);
+        console.log(data);
 
-  if( GBrowserIsCompatible() ) {
-      cartographer = Cartographer(g_map, {colorize:"#000",
-                  colorizeAlpha:.5});
-      cartographer.cluster(data, {
-              gridSize: 35,
-                  gridColor: "#c00",
-                  enableGrid: false,
-                  color:"#fff",
-                  colorHover:"#fff",
-                  stroke:"#fff",
-                  popup:"reduce",
-                  } );
-      g_map.setCenter(centroid(data), Math.max(g_map.getZoom(),2));
-  }
+        if( GBrowserIsCompatible() ) {
+            cartographer = Cartographer(g_map, {colorize:"#000",
+                        colorizeAlpha:.5});
+            cartographer.cluster(data, {
+                    gridSize: 35,
+                        gridColor: "#c00",
+                        enableGrid: false,
+                        color:"#fff",
+                        colorHover:"#fff",
+                        stroke:"#fff",
+                        popup:"reduce",
+                        } );
+            g_map.setCenter(centroid(data), Math.max(g_map.getZoom(),2));
+        }
+    }
   set_progress(false, '');
 }
 
