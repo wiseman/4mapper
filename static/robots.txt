@@ -1,3 +1,6 @@
+# robots.txt for 4mapper.  Restrict robots from spidering our Ajax
+# endpoints.
+
 User-agent: *
 Disallow: /4/
 Disallow: /s/
