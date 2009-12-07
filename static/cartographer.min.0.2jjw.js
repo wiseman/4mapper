@@ -355,8 +355,6 @@ Cartographer = window.Cartographer = (function() {
 			gridLatMin = sw_snap[0];
 			gridLngMax = ne_snap[1] + (2 * gridsize);
 			gridLngMin = sw_snap[1];
-
-                        console.log('sw_snap', sw_snap, 'ne_snap', ne_snap);
 		},
 
 		buildGrid = function( zoomlevel ) { 
@@ -557,15 +555,9 @@ Cartographer = window.Cartographer = (function() {
 
 		zoomend = function( oldLevel, newLevel ) { 
 			currMax = 0;
-                        start = (new Date).getTime();
 			buildGrid( newLevel );
-                        console.log('buildGrid', (new Date).getTime() - start);
-                        start = (new Date).getTime();
 			placeGroups(); 
-                        console.log('placeGroups', (new Date).getTime() - start);
-                        start = (new Date).getTime();
 			render( true );
-                        console.log('render', (new Date).getTime() - start);
 		},
 
 		moveend = function() { 
