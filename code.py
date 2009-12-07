@@ -86,9 +86,10 @@ class MainPage(webapp.RequestHandler):
   def get(self):
     session = gmemsess.Session(self)
 
+    # These are the template variables we'll be filling.
     session_user = None
     gmap_api_key = ""
-    public_users = ""
+    public_users = []
     map_user = None
     
     # Have we authorized this user?
