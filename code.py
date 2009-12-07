@@ -1,3 +1,5 @@
+# 4mapper
+#
 # Copyright 2009 John Wiseman <jjwiseman@gmail.com>
 
 from __future__ import with_statement
@@ -84,55 +86,34 @@ class MainPage(webapp.RequestHandler):
   def get(self):
     session = gmemsess.Session(self)
 
-    do_map = False
-    map_uid = 0
-    map_user_photo = ""
-    map_user_name = ""
-    uid = 0
-    user_photo = ""
-    user_name = ""
-    authorized = False
-    history_is_public = False
+    session_user = None
+    gmap_api_key = ""
+    public_users = ""
+    map_user = None
     
     # Have we authorized this user?
     if 'user_token' in session:
-      authorized = True
-      do_map = True
-      map_uid = session['uid']
-      user = get_user_record(map_uid)
-      if user:
-        history_is_public = user.public
-        uid = map_uid
-        user_photo = user.picture
-        user_name = user.name
-        map_user_photo = user_photo
-        map_user_name = user_name
-    
+      session_user = get_user_record(session['uid'])    
 
     # Get the appropriate google maps API key; there's one for
     # 4mapper.appspot.com and one for localhost (for testing).
     host = self.request.headers['Host'].split(':')[0]
     gmaps_api_key = get_key('gmaps-api-key-%s' % (host,))
 
+    # Which user are we mapping (if any)?
     if 'uid' in self.request.arguments():
-      map_uid = int(self.request.get('uid'))
-      map_user = get_user_record(map_uid)
-      map_user_photo = map_user.picture
-      map_user_name = map_user.name
-      do_map = True
+      map_user = get_user_record(self.request.get('uid'))
+    else:
+      map_user = session_user
 
-      
+    # Figure out which users have made their histories public.
+    public_user_q = History.gql('WHERE public = :1 ORDER BY history_date DESC', True)
+    public_users = public_user_q.fetch(7)
+    
     template_values = {'gmaps_api_key': gmaps_api_key,
-                       'authorized': authorized,
-                       'history_is_public': history_is_public,
-                       'uid': uid,
-                       'map_uid': map_uid,
-                       'map_user_photo': '%s' % (map_user_photo,),
-                       'map_user_name': '%s' % (map_user_name,),
-                       'user_photo': '%s' % (user_photo,),
-                       'user_name': '%s' % (user_name,),
-                       'do_map': do_map,
-                       'do_map_js': ('%s' % (do_map,)).lower()}
+                       'public_users': public_users,
+                       'session_user': session_user,
+                       'map_user': map_user}
     logging.info(template_values)
     self.response.out.write(render_template('index.html', template_values))
 
@@ -297,7 +278,6 @@ application = webapp.WSGIApplication([('/authorize', Authorize),
                                       ('/oauth_callback', OAuthCallback),
                                       ('/logout', Logout),
                                       ('/toggle_public', ToggleHistoryAccess),
-                                      ('/s/public', GetPublicIds),
                                       ('/4/history', FourHistory),
                                       ('/4/user', FourUser),
                                       ('/', MainPage)],

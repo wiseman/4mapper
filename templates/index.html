@@ -1,3 +1,12 @@
+{% comment %}
+Variables used by this template:
+
+gmaps_api_key
+public_user_html
+session_user
+map_user
+
+{% endcomment %}
 <html>
 <head>
 <link href="static/main.css" rel="stylesheet" type="text/css">
@@ -16,16 +25,7 @@
 
 var cartographer; 
 
-{% if authorized %}
-var g_authorized = true;
-{% else %}
-var g_authorized = false;
-{% endif %}
-
-var g_map_uid = {{ map_uid }};
-var g_do_map = {{ do_map_js }};
 var g_map = null;
-
 
 dojo.addOnLoad(load);
 
@@ -36,17 +36,16 @@ function load() {
         g_map.addControl(new GLargeMapControl());
         g_map.addMapType(G_PHYSICAL_MAP);
 
-        if (g_do_map) {
-            console.log("DOING MAP");
-            do_map(g_map_uid);
-        }
+{% if map_user %}
+        console.log("Drawing map.");
+        do_map({{ map_user.uid }});
+{% endif %}
     }
-    do_public_histories();
 }
 
 function map_checkins(checkins) {
     checkins = checkins.checkins;
-    console.log('Have ' + checkins.length + ' checkins.');
+    console.log('Mapping ' + checkins.length + ' checkins.');
     data = [];
     n = 0;
     for (i = 0; i < checkins.length; i++) {
@@ -60,7 +59,6 @@ function map_checkins(checkins) {
     }
     if (data.length > 0) {
         centroid(data);
-        console.log(data);
 
         if( GBrowserIsCompatible() ) {
             cartographer = Cartographer(g_map, {colorize:"#000",
@@ -80,48 +78,8 @@ function map_checkins(checkins) {
   set_progress(false, '');
 }
 
-function do_public_histories() {
-    dojo.xhrGet({
-            url: '/s/public',
-                handleAs: 'json',
-                load: function(data, ioargs) {
-                show_public_histories(data);
-            },
-                error: function(error, args) {
-                console.warn("Error!", error, args);
-                display_error(error);
-            },
-                timeout: 14000,
-                });
-}
-
-function history_user_html(user_info) {
-    return ' <a href="/?uid=' + user_info.uid + '">' +
-        '<img border="0" width="75" height="75" src="' + user_info.picture + '" ' +
-        'alt="' + user_info.name + '" ' + 
-        'title="' + user_info.name + '"></a>';
-}
-
-function show_public_histories(data) {
-    if (data.length > 0) {
-        html = "Map someone else's checkins:<br>";
-        for (i = 0; i < data.length; i++) {
-            html = html + history_user_html(data[i]);
-        }
-        container_node = dojo.byId('public_users');
-            dojo.fadeOut({
-                    node: container_node,
-                        onEnd: function() {
-                        container_node.innerHTML = html;
-                        dojo.fadeIn({node: container_node}).play();}
-                }).play();
-    }
-}
-
 function do_map(uid) {
-    console.log('do_map1');
     set_progress(true, 'Getting history...');
-    console.log('do_map2');
     dojo.xhrGet({
             url: '/4/history?uid=' + uid,
             handleAs: 'json',
@@ -134,7 +92,6 @@ function do_map(uid) {
             },
                 timeout: 14000,
                 });
-    console.log('do_map3');
 }
 
 
@@ -145,7 +102,7 @@ function centroid(data) {
     lat_sum += data[i].lat;
     lng_sum += data[i].lng;
   }
-  console.log('centroid:', lat_sum / data.length, lng_sum / data.length);
+
   return GLatLng(lat_sum / data.length, lng_sum / data.length);
 }
 
@@ -210,7 +167,7 @@ function set_progress(onoff, msg) {
 <span class="note"><i>(Zoom in for more detail!)</i></span>
 
 <td align="right"">
-{% if not authorized %}
+{% if not session_user %}
 <form action="/authorize" method="POST">
 Authorize to map your checkins:
 <input class="button" type="submit" value="Authorize">
@@ -218,7 +175,7 @@ Authorize to map your checkins:
 {% else %}
 <form action="/toggle_public" method="POST">
 <small>Your history is</small>
-{% if history_is_public %}
+{% if session_user.public %}
 <b>public</b>
 <input type="submit" value="make it private"
 {% else %}
@@ -232,19 +189,24 @@ Authorize to map your checkins:
 
 <tr height="100">
 <td>
+<span class="note">View someone else's map:<br>
+{% for u in public_users %}
+  <a href="/?uid={{ u.uid }}"><img width="75" height="75" src="{{ u.picture }}"></a>
+{% endfor %}
+</span>
 <div class="note" id="public_users"></div>
 <td>
 <!-- See set_progress. -->
 <span id="progress"></span>
 
-{% if do_map %}
-<span class="note">Viewing {{ map_user_name}}'s map<br><a href="http://foursquare.com/user/-{{map_uid}}"><img width="75" height="75" src="{{ map_user_photo }}"></a></span>
+{% if map_user %}
+<span class="note">Viewing {{ map_user.name}}'s map<br><a href="http://foursquare.com/user/-{{map_user.uid}}"><img width="75" height="75" src="{{ map_user.picture }}"></a></span>
 {% endif %}
 
 <td align="right" valign="center">
 
-{% if authorized %}
-<span class="note" id="user">Hi, {{ user_name }}!<br><a href="/?uid={{ uid }}"><img class="progress-image" src="{{ user_photo }}"></a></span>
+{% if session_user %}
+<span class="note" id="user">Hi, {{ session_user.name }}!<br><a href="/?uid={{ session_user.uid }}"><img class="progress-image" src="{{ session_user.picture }}"></a></span>
 {% endif %}
 
 </table>
