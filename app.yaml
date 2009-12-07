@@ -1,5 +1,5 @@
 application: 4mapper
-version: r6
+version: r8
 runtime: python
 api_version: 1
 

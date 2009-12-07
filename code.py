@@ -36,13 +36,15 @@ class History(db.Model):
   picture = db.StringProperty()
 
 def get_user_record(uid):
-  user_q = History.all().filter('uid =', uid)
+  uid = int(uid)
+  user_q = History.gql('WHERE uid = :1', uid)
   logging.info('user_q: %s' % (user_q,))
   users = user_q.fetch(2)
   logging.info('users: %s', users)
   if len(users) > 1:
     logging.error('Multiple records for uid %s' % (uid,))
 
+  logging.info('queried for user %s, got %s records' % (`uid`, len(users)))
   if len(users) > 0:
     return users[0]
   else:
@@ -106,7 +108,7 @@ class MainPage(webapp.RequestHandler):
       map_user = get_user_record(self.request.get('uid'))
     else:
       map_user = session_user
-
+    logging.info(map_user)
     # Figure out which users have made their histories public.
     public_user_q = History.gql('WHERE public = :1 ORDER BY history_date DESC', True)
     public_users = public_user_q.fetch(7)
