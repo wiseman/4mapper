@@ -108,7 +108,6 @@ class MainPage(webapp.RequestHandler):
       map_user = get_user_record(self.request.get('uid'))
     else:
       map_user = session_user
-    logging.info(map_user)
     # Figure out which users have made their histories public.
     public_user_q = History.gql('WHERE public = :1 ORDER BY history_date DESC', True)
     public_users = public_user_q.fetch(7)
@@ -176,7 +175,7 @@ class OAuthCallback(webapp.RequestHandler):
     # name and photo.
     user_record = get_user_record(uid)
     if not user_record:
-      user_record = make_user_record(uid, user['firstname'], user['photo']).put()
+      user_record = make_user_record(uid, user['firstname'], user['photo'])
       user_record.put()
     else:
       user_record.name = user['firstname']
@@ -270,17 +269,13 @@ class Logout(webapp.RequestHandler):
     self.redirect('/')
 
 
-class GetPublicIds(webapp.RequestHandler):
+class PageNotFound(webapp.RequestHandler):
   def get(self):
-    user_q = History.gql('WHERE public = :1 ORDER BY history_date DESC', True)
-    users = user_q.fetch(7)
-    logging.info(users)
-    def user_dict(user):
-      return {'name': user.name, 'uid': user.uid, 'picture': user.picture}
-    results = [user_dict(u) for u in users]
-    self.response.headers['Content-Type'] = 'text/plain'
-    self.response.out.write(simplejson.dumps(results))
+    self.error(404)
+    self.response.out.write(HTML_404)
+
     
+
 
 application = webapp.WSGIApplication([('/authorize', Authorize),
                                       ('/oauth_callback', OAuthCallback),
@@ -288,7 +283,8 @@ application = webapp.WSGIApplication([('/authorize', Authorize),
                                       ('/toggle_public', ToggleHistoryAccess),
                                       ('/4/history', FourHistory),
                                       ('/4/user', FourUser),
-                                      ('/', MainPage)],
+                                      ('/', MainPage),
+                                      ('/.*', PageNotFound)],
                                      #debug=True
                                      )
 
