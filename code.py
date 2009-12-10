@@ -168,8 +168,21 @@ class OAuthCallback(webapp.RequestHandler):
     session['user_token'] = user_token.to_string()
 
     fs.credentials.set_access_token(user_token)
-    uid = fs.user()['user']['id']
+    user = fs.user()['user']
+    uid = user['id']
     session['uid'] = uid
+
+    # Make sure this user is in our DB and we save his most up-to-date
+    # name and photo.
+    user_record = get_user_record(uid)
+    if not user_record:
+      user_record = make_user_record(uid, user['firstname'], user['photo']).put()
+      user_record.put()
+    else:
+      user_record.name = user['firstname']
+      user_record.picture = user['photo']
+      user_record.put()
+    
     session.save()
     self.redirect('/')
 
@@ -210,14 +223,8 @@ class FourHistory(webapp.RequestHandler):
       history_s = simplejson.dumps(history)
       logging.info('Storing history for user %s (%s bytes)' % (uid, len(history_s)))
       user_record = get_user_record(uid)
-      if not user_record:
-        logging.debug('(This is a new record.)')
-        user_record = make_user_record(uid, user['firstname'], user['photo'])
       user_record.history = history_s
       user_record.history_date = datetime.datetime.now()
-      logging.info('creating record %s, %s, %s' % \
-                   (user_record.uid, user_record.name, user_record.picture))
-                    
       user_record.put()
 
     logging.info('history took %.3f s' % (time.time() - start_time,))
@@ -248,8 +255,6 @@ class ToggleHistoryAccess(webapp.RequestHandler):
     user = fs.user()['user']
     uid = user['id']
     user_record = get_user_record(uid)
-    if not user_record:
-      user_record = make_user_record(uid, user['firstname'], user['photo'])
     logging.info('Changing public for uid %s from %s to %s' %
                  (uid, user_record.public, not user_record.public))
     user_record.public = not user_record.public
