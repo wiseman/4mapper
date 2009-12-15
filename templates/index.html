@@ -74,28 +74,20 @@ function map_checkins(checkins) {
                         balloon: function (obj) {
                         var s = '<div><font size="-2">';
                         var last_label = '';
-                        var count = 0;
+                        var counts = {};
                         for (var i = 0; i < obj.items.length; i++) {
                             var label = obj.items[i].label;
-                            if (label == last_label) {
-                                count += 1;
+                            if (label in counts) {
+                                counts[label] += 1;
                             } else {
-                                if (count > 0) {
-                                    if (count > 1) {
-                                        s += last_label + ' (x' + count + ')<br/>';
-                                    } else {
-                                        s += last_label + '<br/>';
-                                    }
-                                }
-                                last_label = label;
-                                count = 1;
+                                counts[label] = 1;
                             }
                         }
-                        if (count > 0) {
-                            if (count > 1) {
-                                s += last_label + ' (x' + count + ')<br/>';
+                        for (label in counts) {
+                            if (counts[label] > 1) {
+                                s += label + ' (x' + counts[label] + ')<br/>';
                             } else {
-                                s += last_label + '<br/>';
+                                s += label + '<br/>';
                             }
                         }
                         s += "</font></div>";
@@ -221,7 +213,7 @@ Authorize to map your checkins:
 <td width="600">
 <span class="note">View someone else's map:<br>
 {% for u in public_users %}
-  <a href="/?uid={{ u.uid }}"><img width="75" height="75" src="{{ u.picture }}"></a>
+  <a href="/?uid={{ u.uid }}"><img width="75" height="75" alt="Map {{ u.name }}'s checkins" src="{{ u.picture }}"></a>
 {% endfor %}
 </span>
 <div class="note" id="public_users"></div>
