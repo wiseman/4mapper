@@ -17,7 +17,7 @@ map_user
 
 <title>4mapper - Mapping foursquare</title>
 
-<script type="text/javascript" src="http://maps.google.com/maps?file=api&v=2.x&key=ABQIAAAAy-QtcaLYn_SCweZpooQCBxRalkY-nKN85LMYBy2cKIu_ytkA0RTaMuuhU75PoP1yumnRf2gO45qz4w"></script>
+<script type="text/javascript" src="http://maps.google.com/maps?file=api&amp;v=2.x&amp;key=ABQIAAAAy-QtcaLYn_SCweZpooQCBxRalkY-nKN85LMYBy2cKIu_ytkA0RTaMuuhU75PoP1yumnRf2gO45qz4w"></script>
 <script type="text/javascript" language="javascript" src="static/raphael-min.js"></script>
 <script type="text/javascript" language="javascript" src="static/cartographer.min.r8.js"></script>
 <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/dojo/1.3.2/dojo/dojo.xd.js" djConfig="isDebug:false"> </script>
@@ -90,7 +90,7 @@ function map_checkins(checkins) {
                                 s += label + '<br/>';
                             }
                         }
-                        s += "</font></div>";
+                        s += "<\/font><\/div>";
                         return s;
                     }
                 } );
@@ -164,7 +164,7 @@ function set_progress(onoff, msg) {
         dojo.fadeOut({
                     node: containerNode,
                     onEnd: function() {
-                    containerNode.innerHTML = '<span class="progress-text">' + msg + '</span>';
+                    containerNode.innerHTML = '<span class="progress-text">' + msg + '<\/span>';
                         dojo.fadeIn({node: containerNode}).play();}
             }).play();
     } else {
@@ -188,7 +188,7 @@ function set_progress(onoff, msg) {
 <big><b>4mapper</b> - Mapping <a href="http://playfoursquare.com/">foursquare</a></big>
 <span class="note"><i>(Zoom in for more detail!)</i></span>
 
-<td align="right"">
+<td align="right">
 {% if not session_user %}
 <form action="/authorize" method="POST">
 Authorize to map your checkins:
@@ -225,7 +225,7 @@ Authorize to map your checkins:
 <span class="note">Viewing {{ map_user.name}}'s map<br><a href="http://foursquare.com/user/-{{map_user.uid}}"><img width="75" height="75" src="{{ map_user.picture }}"></a></span>
 {% endif %}
 
-<td align="right" valign="center">
+<td align="right" valign="middle">
 
 {% if session_user %}
 <span class="note" id="user">Hi, {{ session_user.name }}!<br><a href="/?uid={{ session_user.uid }}"><img class="progress-image" src="{{ session_user.picture }}"></a></span>
