@@ -1,9 +1,13 @@
 application: 4mapper
-version: r12
+version: r13
 runtime: python
 api_version: 1
 
 handlers:
+- url: /admin
+  script: code.py
+  login: admin
+
 - url: /static
   static_dir: static
 

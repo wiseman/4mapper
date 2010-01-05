@@ -16,7 +16,7 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.ext.webapp import template
 from django.utils import simplejson
 from google.appengine.ext import db
-
+from google.appengine.api import users as gaeusers
 
 import oauth
 import gmemsess
@@ -81,6 +81,45 @@ def get_key(name, secret=False):
     value = safer_eval(f.read())
   key_cache[name] = value
   return value
+
+class AdminPage(webapp.RequestHandler):
+  def get(self):
+    # Make sure only I can access this.
+    user = gaeusers.get_current_user()
+    if user:
+      self.response.out.write('Hi, %s\n\n' % (user.nickname(),))
+      if not gaeusers.is_current_user_admin():
+        self.response.out.write('Sorry, you need to be an administrator to view this page.\n')
+      else:
+        self.response.out.write('Cool, you are an adminnnistrator.\n')
+
+        earliest_date = None
+        earliest_user = None
+        logging.info('About to get some users.')
+        users = db.GqlQuery('SELECT * FROM History')
+        logging.info('Got some users: %s' % (users,))
+        for user in users:
+          logging.info('user: %s %s' % (user.name, user.uid))
+          history = simplejson.loads(user.history)
+          history_ts = [(c, date_of(c)) for c in history['checkins']]
+          history_ts = sorted(history_ts, key=lambda c: c[1])
+          if len(history_ts) > 0:
+            logging.info('hist: %s' % (history_ts[0],))
+            if not earliest_date or history_ts[0][1] < earliest_date:
+              earliest_date = history_ts[0][1]
+              earliest_user = user.uid
+              logging.info('Got new earliest date %s, user %s' % (earliest_date, user.name))
+        self.response.out.write('%s %s' % (time.localtime(earliest_date),
+                                           earliest_user))
+    else:
+      self.redirect(gaeusers.create_login_url(self.request.uri))
+
+
+def date_of(c):
+  import rfc822
+  checkin_ts = time.mktime(rfc822.parsedate(c['created']))
+  #logging.info('date of: %s' % (checkin_ts,))
+  return checkin_ts
 
 
 class MainPage(webapp.RequestHandler):
@@ -214,7 +253,7 @@ class FourHistory(webapp.RequestHandler):
       
     else:
       # Get latest history for current user.
-      history = fs.history(l=250)
+      history = get_entire_history(fs)
 
       # Store the history.
       user = fs.user()['user']
@@ -269,6 +308,8 @@ class Logout(webapp.RequestHandler):
     self.redirect('/')
 
 
+HTML_404 = '404 Error'
+
 class PageNotFound(webapp.RequestHandler):
   def get(self):
     self.error(404)
@@ -284,9 +325,14 @@ application = webapp.WSGIApplication([('/authorize', Authorize),
                                       ('/4/history', FourHistory),
                                       ('/4/user', FourUser),
                                       ('/', MainPage),
+                                      ('/admin', AdminPage),
                                       ('/.*', PageNotFound)],
                                      #debug=True
                                      )
+
+
+def get_entire_history(fs):
+  return fs.history(l=250)
 
 def main():
   run_wsgi_app(application)
