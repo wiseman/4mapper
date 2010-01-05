@@ -88,7 +88,8 @@ FOURSQUARE_METHODS = {}
 
 def def_method(name, auth_required=False, server=API_SERVER,
                http_method="GET", optional=[], required=[],
-               returns=None, url_template=API_URL_TEMPLATE):
+               returns=None, url_template=API_URL_TEMPLATE,
+               namespaced=True):
     FOURSQUARE_METHODS[name] = {
         'server': server,
         'http_method': http_method,
@@ -97,6 +98,7 @@ def def_method(name, auth_required=False, server=API_SERVER,
         'required': required,
         'returns': returns,
         'url_template': url_template,
+        'namespaced': namespaced
         }
 
 
@@ -107,19 +109,22 @@ def def_method(name, auth_required=False, server=API_SERVER,
 def_method('request_token',
            server=OAUTH_SERVER,
            returns='oauth_token',
-           url_template=OAUTH_URL_TEMPLATE)
+           url_template=OAUTH_URL_TEMPLATE,
+           namespaced=False)
 
 def_method('authorize',
            server=OAUTH_SERVER,
            required=['token'],
            returns='request_url',
-           url_template=OAUTH_URL_TEMPLATE)
+           url_template=OAUTH_URL_TEMPLATE,
+           namespaced=False)
 
 def_method('access_token',
            server=OAUTH_SERVER,
            required=['token'],
            returns='oauth_token',
-           url_template=OAUTH_URL_TEMPLATE)
+           url_template=OAUTH_URL_TEMPLATE,
+           namespaced=False)
 
 
 # --------------------
@@ -129,7 +134,6 @@ def_method('access_token',
 def_method('cities')
 
 def_method('checkcity',
-           auth_required=True,
            required=['geolat', 'geolong'])
 
 def_method('switchcity',
@@ -150,11 +154,11 @@ def_method('checkin',
            auth_required=True,
            http_method='POST',
            optional=['vid', 'venue', 'shout', 'private',
-                     'twitter', 'geolat', 'geolong'])
+                     'twitter', 'facebook', 'geolat', 'geolong'])
 
 def_method('history',
            auth_required=True,
-           optional=['l'])
+           optional=['l', 'sinceid'])
 
 
 # --------------------
@@ -186,7 +190,21 @@ def_method('addvenue',
            http_method='POST',
            required=['name', 'address', 'crossstreet',
                      'city', 'state', 'cityid'],
+           optional=['zip', 'phone', 'geolat', 'geolong'])
+
+def_method('venue_proposeedit',
+           auth_required=True,
+           http_method='POST',
+           # Documentation does not specify if crosstreet is required
+           # or optional.
+           required=['vid', 'name', 'address', 'crossstreet', 'city',
+                     'state', 'geolat', 'geolong'],
            optional=['zip', 'phone'])
+
+def_method('venue_flagclosed',
+           auth_required=True,
+           http_method='POST',
+           required=['vid'])
 
 
 # --------------------
@@ -201,8 +219,17 @@ def_method('addtip',
            auth_required=True,
            http_method='POST',
            required=['vid', 'text'],
-           optional=['type'])
+           optional=['type', 'geolat', 'geolong'])
 
+def_method('tip_marktodo',
+           auth_required=True,
+           http_method='POST',
+           required=['tid'])
+
+def_method('tip_markdone',
+           auth_required=True,
+           http_method='POST',
+           required=['tid'])
 
 # --------------------
 # Settings methods
@@ -212,6 +239,40 @@ def_method('setpings',
            auth_required=True,
            http_method='POST',
            required=['self', 'uid'])
+
+# --------------------
+# Friend methods
+# --------------------
+
+def_method('friend_requests',
+           auth_required=True)
+
+def_method('friend_approve',
+           auth_required=True,
+           http_method='POST',
+           required=['uid'])
+
+def_method('friend_deny',
+           auth_required=True,
+           http_method='POST',
+           required=['uid'])
+
+def_method('friend_sendrequest',
+           auth_required=True,
+           http_method='POST',
+           required=['uid'])
+
+def_method('findfriends_byname',
+           auth_required=True,
+           required=['q'])
+
+def_method('findfriends_byphone',
+           auth_required=True,
+           required=['q'])
+
+def_method('findfriends_bytwitter',
+           auth_required=True,
+           optional=['q'])
 
 
 # --------------------
@@ -404,11 +465,19 @@ class Foursquare:
             token = None
 
         # Build the request.
-        cred_url, cred_args, cred_headers = self.credentials.build_request(
-            meta['http_method'],
-            meta['url_template'].substitute(method=method),
-            kw,
-            token=token)
+        if meta['namespaced']:
+            cred_url, cred_args, cred_headers = self.credentials.build_request(
+                meta['http_method'],
+                meta['url_template'].substitute(method=method.replace('_', '/')),
+                kw,
+                token=token)
+        else:
+            cred_url, cred_args, cred_headers = self.credentials.build_request(
+                meta['http_method'],
+                meta['url_template'].substitute(method=method),
+                kw,
+                token=token)
+            
 
         # If the return type is the request_url, simply build the URL and 
         # return it witout executing anything    
@@ -452,3 +521,55 @@ def merge_dicts(a, b):
     for key, value in b.items():
         r[key] = value
     return r
+
+
+def history_generator(fs, batchsize=250, sinceid=0):
+    """A lower-level function for retrieving a user's entire checkin
+    history.  Given a Foursquare API object, this function will call
+    the object's history method as many times as required to retrieve
+    the user's entire history, yielding the result after each call.
+
+    The batchsize argument, which defaults to 250, is the number of
+    checkins to attempt to fetch each time.  The sinceid argument,
+    which defaults to 0, is the lower bound on desired checkins.
+
+    The idea of making this a generator is to give the caller control
+    over the API calls being made--The caller can decide how quickly
+    to make calls, or can stop making calls entirely if enough of the
+    user's history has been retrieved.
+    """
+    done = False
+    while not done:
+        # Get a batch of checkins and yield it.
+        h = fs.history(sinceid=sinceid, l=batchsize)
+        if h['checkins']:
+            h['checkins'] = sorted(h['checkins'], key=lambda c: c['id'])
+        yield h
+
+        # Annoying that Foursquare uses null/None to indicate zero
+        # checkins.
+        if not h['checkins'] or len(h['checkins']) != batchsize:
+            done = True
+        else:
+            # Find the most recent checkin ID.
+            sinceid = h['checkins'][-1]['id']
+
+
+def all_history(fs, batchsize=250, sinceid=0):
+    """Returns a tuple containing a user's entire checkin history.
+    Note that the result is a tuple, not a dictionary with a single
+    key/value containing the list of checkins like the
+    Foursquare.history method returns.
+
+    The batchsize argument, which defaults to 250, is the number of
+    checkins to attempt to fetch each time.  The sinceid argument,
+    which defaults to 0, is the lower bound on desired checkins.
+    """
+    history = []
+    for h in history_generator(fs, batchsize=batchsize, sinceid=sinceid):
+        # Annoying that Foursquare uses null/None to indicate zero
+        # checkins.
+        if h['checkins']:
+            history += h['checkins']
+    return history
+
