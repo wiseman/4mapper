@@ -101,7 +101,7 @@ class AdminPage(webapp.RequestHandler):
         for user in users:
           logging.info('user: %s %s' % (user.name, user.uid))
           history = simplejson.loads(user.history)
-          history_ts = [(c, date_of(c)) for c in history['checkins']]
+          history_ts = [(c, seconds_since_epoch_of_checkin(c)) for c in history['checkins']]
           history_ts = sorted(history_ts, key=lambda c: c[1])
           if len(history_ts) > 0:
             logging.info('hist: %s' % (history_ts[0],))
@@ -115,7 +115,7 @@ class AdminPage(webapp.RequestHandler):
       self.redirect(gaeusers.create_login_url(self.request.uri))
 
 
-def date_of(c):
+def seconds_since_epoch_of_checkin(c):
   import rfc822
   checkin_ts = time.mktime(rfc822.parsedate(c['created']))
   #logging.info('date of: %s' % (checkin_ts,))
@@ -226,7 +226,7 @@ class OAuthCallback(webapp.RequestHandler):
 
 class FourHistory(webapp.RequestHandler):
   """This is an Ajax endpoint that returns a user's checkin history.
-  Requires foursquare authorization.
+  Requires Foursquare authorization.
   """
   def get(self):
     session = gmemsess.Session(self)
@@ -255,6 +255,25 @@ class FourHistory(webapp.RequestHandler):
       # Get latest history for current user.
       history = get_entire_history(fs)
 
+      # Massage it a little.
+      if 'checkins' in history:
+        history = history['checkins']
+      if history == None:
+        history = []
+
+      # Now add a seconds-since-epoch version of each checkin
+      # timestamp.
+      h = []
+      for c in history:
+        try:
+          checkin_ts = seconds_since_epoch_of_checkin(c)
+        except Exception, e:
+          logging.error('Bad checkin date for user %s, checkin %s: %s' % (session['uid'], c, e))
+        else:
+          c['created_epoch'] = checkin_ts
+          h.append(c)
+      history = h
+      
       # Store the history.
       user = fs.user()['user']
       uid = user['id']
@@ -332,7 +351,7 @@ application = webapp.WSGIApplication([('/authorize', Authorize),
 
 
 def get_entire_history(fs):
-  return fs.history(l=250)
+  return foursquare.all_history(fs)
 
 def main():
   run_wsgi_app(application)

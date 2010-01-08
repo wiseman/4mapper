@@ -2,16 +2,67 @@
 
 body {
     background: rgb(198, 227, 254);
-    /* margin: 20px 20px 20px 20px; */
+    margin: 1px 25px 1px 25px;
     font-family: Tahoma;
-    font-size: 12pt;
+    font-size: 10pt;
     font-weight: normal;
+}
+
+div.rfloat {
+    float: right;
+}
+
+div.lfloat {
+    float: left;
+}
+
+div.spacer {
+    clear: both;
+}
+
+.column {
+    position: relative;
+    float: left;
+}
+
+#header {
+    font-size: 12pt;
+    margin-bottom: 10px;
+}
+
+#info_pane {
+    height: 35px;
+    padding-left: 150px;
+}
+
+#content {
+    padding-left: 150px;
+}
+
+#sidebar {
+    width: 140px;
+    right: 150px;
+    margin-left: -100%;
+}
+
+#map_canvas {
+    min-height: 200px;
+    height: 80%;
+    width: 100%;
+}
+
+
+#footer {
+    clear: both;
+    background: rgb(200,200,200);
+    margin-top: 20px;
 }
 
 form {
     margin: 0px 0px 0px 0px;
     padding: 0px 0px 0px 0px;
 }
+
 
 
 h1 {
@@ -27,12 +78,13 @@ h1 {
 }
 
 .progress-text {
-    vertical-align: middle;
-    margin-right: 15px;
 }
 
 .progress-image {
-    vertical-align: middle;
+}
+
+.sparkline-label {
+    font-size: 8pt;
 }
 
 #public_users {
@@ -56,8 +108,10 @@ h1 {
 }
 
 
+/*
 div.header { max-width:700px; background:#122b33; padding-right:42px;  }
 div.content { margin:30px; border:1px solid #333; padding:20px; max-width:700px; }
+*/
 
 div#desc { padding-top:20px; border-top:2px solid #333; }
 .cartographer-balloon { font-family:Verdana,Arial; font-size:11px; }
