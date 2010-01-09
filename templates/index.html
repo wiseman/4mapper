@@ -45,6 +45,11 @@ function load() {
     }
 }
 
+function display_history(history) {
+    map_checkins(history.checkins);
+    show_stats(history.statistics);
+}
+
 function map_checkins(checkins) {
     console.log('Mapping ' + checkins.length + ' checkins.');
     data = [];
@@ -99,101 +104,34 @@ function map_checkins(checkins) {
         }
     }
 
-    make_charts(data)
     set_progress(false, '');
 }
 
-function make_charts(data)
+function last_n(a, n)
 {
-    make_30day_chart(data);
-}
-
-function make_30day_chart(data)
-{
-    bins = []
-
-    today = new Date();
-    today.setUTCHours(0);
-    today.setUTCMinutes(0);
-    today.setUTCSeconds(0);
-    today.setUTCMilliseconds(0);
-    for (i = 0; i < 30; i++) {
-        days_back = 29 - i;
-        bin_date = new Date(today);
-        bin_date.setDate(bin_date.getDate() - days_back);
-        bins[i] = {start_time: bin_date, contents: []};
+    var i;
+    result = []
+    for (i = a.length - n; i < a.length; i++) {
+        result.push(a[i]);
     }
-
-    for (i = 0; i < data.length; i++) {
-        data[i].created_date = new Date(data[i].created_epoch*1000);
-        bin_update(bins, data[i]);
-    }
-    values = bin_values(bins);
-    $('#recent-activity-30day-sparkline').sparkline(values, {width: 140});
-
-    v = [];
-    for (i = 0; i < 7; i++) {
-        v[i] = values[(values.length - 7) + i];
-    }
-    $('#recent-activity-7day-sparkline').sparkline(v, {width: 140});
-
-        
-}
-
-function bin_update(bins, object)
-{
-    bin_index = find_bin(bins, object);
-    if (bin_index >= 0) {
-        bins[bin_index].contents.push(object);
-    };
-}
-
-function find_bin(bins, object)
-{
-    if (bins.length > 0) {
-        if (object.created_date >= bins[0].start_time) {
-            bin_index = 0;
-            while (bin_index < bins.length - 1 && 
-                   object.created_date >= bins[bin_index + 1].start_time) {
-                bin_index += 1;
-            }
-            return bin_index;
-        }
-    }
-    return -1;
-}
-
-function bin_values(bins)
-{
-    values = [];
-    for (i = 0; i < bins.length; i++) {
-        values[i] = bins[i].contents.length;
-    }
-    return values;
-}
-
-function sparkline_url(bins)
-{
-    values = bin_values(bins);
-    min = values[0];
-    max = values[0];
-    values_s = '';
-    for (i = 0; i < values.length; i++) {
-        if (values[i] < min) {
-            min = values[i];
-        } else if (values[i] > max) {
-            max = values[i];
-        }
-        values_s += values[i] + ',';
-    }
-    str = 'http://sparklines.bitworking.info/spark.cgi' + '?d=' + values_s + '&height=40' + '&limits=' + min + ',' + max + '&type=smooth&step=2';
-    console.log(str);
-    return str;
+    return result;
 }
 
 
+function show_stats(stats)
+{
 
+    counts = stats.checkin_counts;
+    options = {width: 140, height: 25};
+    $('#recent-activity-365day-sparkline').sparkline(counts, options);
+    $('#recent-activity-30day-sparkline').sparkline(last_n(counts, 30), options);
 
+    distances = stats.distances;
+    $('#recent-distance-365day-sparkline').sparkline(distances, options);
+    $('#recent-distance-30day-sparkline').sparkline(last_n(distances, 30), options);
+    
+    dojo.byId('recent-favorites').innerHTML = stats.recent_favorites;
+}
 
 
 function do_map(uid) {
@@ -202,7 +140,7 @@ function do_map(uid) {
             url: '/4/history?uid=' + uid,
             handleAs: 'json',
                 load: function(data, ioargs) {
-                map_checkins(data);
+                display_history(data);
             },
                 error: function(error, args) {
                 console.warn("Error!", error, args);
@@ -324,53 +262,20 @@ Authorize to map your checkins:
 OH HAI, {{session_user.name}}!
 <p>
 
+<p class="sparkline-label">365 day activity:</p>
+<div id="recent-activity-365day-sparkline"</div>
+
 <p class="sparkline-label">30 day activity:</p>
 <div id="recent-activity-30day-sparkline"</div>
 
-<p class="sparkline-label">7 day activity:</p>
-<div id="recent-activity-7day-sparkline"</div>
+<p class="sparkline-label">365 day distances:</p>
+<div id="recent-distance-365day-sparkline"</div>
 
-<!--
-<div dojoType="dojox.data.HtmlStore" dataId="tableExample" jsId="tableStore"></div>
-		<table id="tableExample" style="display: none;">
+<p class="sparkline-label">30 day distance:</p>
+<div id="recent-distance-30day-sparkline"</div>
 
-			<thead>
-				<tr><th>value</th></tr>
-			</thead>
-			<tbody>
-				<tr><td>6.3</td></tr>
-				<tr><td>1.8</td></tr>
-				<tr><td>3  </td></tr>
-
-				<tr><td>0.5</td></tr>
-				<tr><td>4.4</td></tr>
-				<tr><td>2.7</td></tr>
-				<tr><td>2  </td></tr>
-			</tbody>
-		</table>
-
-<div dojoType="dojox.charting.widget.Chart2D" 
-  theme="dojox.charting.themes.Tufte" 
-  margins="{ l: 0, r: 0, t: 0, b: 0 }"
-  style="width: 100px; height: 15px;">
-<div class="plot" name="default" type="Lines"></div>
-<div class="series" name="Series A" store="tableStore" valueFn="Number(x)"></div>
-</div>
-<div dojoType="dojox.charting.widget.Chart2D" 
-  theme="dojox.charting.themes.Tufte" 
-  margins="{ l: 0, r: 0, t: 0, b: 0 }"
-  style="width: 100px; height: 15px;">
-<div class="plot" name="default" type="Lines"></div>
-<div class="series" name="Series A" store="tableStore" valueFn="Number(x)"></div>
-</div>
-<div dojoType="dojox.charting.widget.Chart2D" 
-  theme="dojox.charting.themes.Tufte" 
-  margins="{ l: 0, r: 0, t: 0, b: 0 }"
-  style="width: 100px; height: 15px;">
-<div class="plot" name="default" type="Lines"></div>
-<div class="series" name="Series A" store="tableStore" valueFn="Number(x)"></div>
-</div>
--->
+<p class="sparkline-label">Recent favorites:</p>
+<div id="recent-favorites"></div>
 
 {% else %}
 <p>

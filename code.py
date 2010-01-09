@@ -10,6 +10,9 @@ import pprint
 import time
 import sys
 import datetime
+import itertools
+import math
+import collections
 
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp.util import run_wsgi_app
@@ -275,19 +278,134 @@ class FourHistory(webapp.RequestHandler):
       history = h
       
       # Store the history.
-      user = fs.user()['user']
-      uid = user['id']
-      history_s = simplejson.dumps(history)
-      logging.info('Storing history for user %s (%s bytes)' % (uid, len(history_s)))
-      user_record = get_user_record(uid)
-      user_record.history = history_s
-      user_record.history_date = datetime.datetime.now()
-      user_record.put()
+      store_user_history(session['uid'], history)
 
     logging.info('history took %.3f s' % (time.time() - start_time,))
     self.response.headers['Content-Type'] = 'text/plain'
-    self.response.out.write(simplejson.dumps(history))
 
+    result = {'checkins': history,
+              'statistics': generate_history_stats(history)}
+    
+    self.response.out.write(simplejson.dumps(result))
+
+
+def generate_history_stats(history):
+  fn_start_time = time.time()
+  day_groups = []
+  history = sorted(history, key=lambda c: c['created_epoch'])
+  for k, g in itertools.groupby(history,
+                                lambda c: datetime.datetime.fromtimestamp(c['created_epoch']).day):
+    day_group = list(g)
+    day_groups.append((datetime.datetime.fromtimestamp(day_group[0]['created_epoch']),
+                       day_group))
+
+  # We'll return checkin counts and distances for the last 365 days.
+  checkin_counts = [0] * 365
+  distance_traveled = [0.0] * 365
+
+  # Limit checkins to the last 365 days.
+  now = datetime.datetime.now()
+  cutoff_date = now - datetime.timedelta(days=365)
+  day_groups = [(s, g) for (s, g) in day_groups if s >= cutoff_date]
+
+  # Compute checkin counts and distances.
+  for start_time, group in day_groups:
+    assert start_time >= cutoff_date
+    for checkin in group:
+      time_delta = now - datetime.datetime.fromtimestamp(checkin['created_epoch'])
+      assert time_delta.days < 365
+      days_delta = time_delta.days
+      index = 364 - time_delta.days
+      checkin_counts[index] += 1
+    distance_traveled[index] = distance_between_checkins(group)
+
+  # Compute favorites.
+  # Recent favorites first.
+  recent_day_groups = last_n_days(day_groups, now, 30)
+  recent_venue_counts = collections.defaultdict(int)
+  venue_names =  {}
+  for s, g in recent_day_groups:
+    for checkin in g:
+      if 'venue' in checkin and 'id' in checkin['venue']:
+        venue = checkin['venue']
+        vid = venue['id']
+        venue_names[vid] = venue['name']
+        recent_venue_counts[vid] += 1
+  recent_favorites = [(vid, count) for vid, count in recent_venue_counts.items()]
+  recent_favorites = sorted(recent_favorites, key=lambda f: f[1])
+  recent_favorites = recent_favorites[-3:]
+  recent_favorites = [venue_names[vid] for vid, count in recent_favorites]
+
+  logging.info('statistics took %.3f s' % (time.time() - fn_start_time,))
+  return {'checkin_counts': checkin_counts,
+          'distances': distance_traveled,
+          'recent_favorites': recent_favorites}
+
+
+def last_n_days(day_groups, now, n):
+  cutoff_date = now - datetime.timedelta(days=n)
+  day_groups = [(s, g) for (s, g) in day_groups if s > cutoff_date]
+  return day_groups
+
+def all_but_last_n_days(day_groups, now, n):
+  cutoff_date = now - datetime.timedelta(days=n)
+  day_groups = [(s, g) for (s, g) in day_groups if s <= cutoff_date]
+  return day_groups
+
+  
+def distance_between_checkins(checkins):
+  # Filter out checkins that don't have venues or that don't have geo
+  # coordinates.
+  checkins = [c for c in checkins if 'venue' in c and 'geolat' in c['venue']]
+  distance = 0.0
+  for a, b in window(checkins, 2):
+    distance += distance_between(a, b)
+  return distance
+
+def distance_between(c1, c2):
+  def to_rad(d):
+    return d * math.pi / 180.0
+
+  v1 = c1['venue']
+  v2 = c2['venue']
+  lat1 = to_rad(v1['geolat'])
+  lon1 = to_rad(v1['geolong'])
+  lat2 = to_rad(v2['geolat'])
+  lon2 = to_rad(v2['geolong'])
+  r = 6371
+  d = math.acos(math.sin(lat1) * math.sin(lat2) + \
+                math.cos(lat1) * math.cos(lat2) * \
+                math.cos(lon2 - lon1)) * r
+  return d
+  
+
+
+      
+      
+        
+      
+def window(seq, n=2):
+  "Returns a sliding window (of width n) over data from the iterable"
+  "   s -> (s0,s1,...s[n-1]), (s1,s2,...,sn), ...                   "
+  it = iter(seq)
+  result = tuple(itertools.islice(it, n))
+  if len(result) == n:
+    yield result    
+  for elem in it:
+    result = result[1:] + (elem,)
+    yield result
+  
+
+  
+def store_user_history(uid, history):
+  history_s = simplejson.dumps(history)
+  logging.info('Storing history for user %s (%s bytes)' % (uid, len(history_s)))
+  user_record = get_user_record(uid)
+  user_record.history = history_s
+  user_record.history_date = datetime.datetime.now()
+  user_record.put()
+  
+  
 class FourUser(webapp.RequestHandler):
   def get(self):
     session = gmemsess.Session(self)
