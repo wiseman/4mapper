@@ -131,6 +131,8 @@ function show_stats(stats)
     $('#recent-distance-30day-sparkline').sparkline(last_n(distances, 30), options);
     
     dojo.byId('recent-favorites').innerHTML = stats.recent_favorites;
+    dojo.byId('new-favorites').innerHTML = stats.new_favorites;
+    dojo.byId('forgotten-favorites').innerHTML = stats.forgotten_favorites;
 }
 
 
@@ -165,6 +167,7 @@ function centroid(data) {
 // Display an error message to the user.
 
 function display_error(html) {
+    alert(html);
     console.warn("displaying error", html);
     set_progress(false, '');
     var containerNode = dojo.byId("error");
@@ -271,11 +274,17 @@ OH HAI, {{session_user.name}}!
 <p class="sparkline-label">365 day distances:</p>
 <div id="recent-distance-365day-sparkline"</div>
 
-<p class="sparkline-label">30 day distance:</p>
+<p class="sparkline-label">30 day distances:</p>
 <div id="recent-distance-30day-sparkline"</div>
 
 <p class="sparkline-label">Recent favorites:</p>
-<div id="recent-favorites"></div>
+<div id="recent-favorites" class="sparkline-label"></div>
+
+<p class="sparkline-label">New favorites:</p>
+<div id="new-favorites" class="sparkline-label"></div>
+
+<p class="sparkline-label">Forgotten favorites:</p>
+<div id="forgotten-favorites" class="sparkline-label"></div>
 
 {% else %}
 <p>

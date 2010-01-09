@@ -319,9 +319,33 @@ def generate_history_stats(history):
       checkin_counts[index] += 1
     distance_traveled[index] = distance_between_checkins(group)
 
+
   # Compute favorites.
-  # Recent favorites first.
-  recent_day_groups = last_n_days(day_groups, now, 30)
+  all_favorites, venue_names = favorites_from_last_n_days(day_groups, now, 10000)  # heh, i rebel.
+  # Recent favorites first.  
+  recent_favorites, venue_names_2 = favorites_from_last_n_days(day_groups, now, 30)
+  venue_names = merge_dicts(venue_names, venue_names_2)
+  recent_favorites = recent_favorites[-5:]
+
+  # New Favorites
+  all_vids = [vid for vid, count in all_favorites][-20:]
+  recent_vids = [vid for vid, count in recent_favorites]
+
+  new_vids = set(recent_vids).difference(set(all_vids))
+
+  recent_favorites = [venue_names[vid] for vid, count in recent_favorites[-3:]]
+  new_favorites = [venue_names[vid] for vid in new_vids][-3:]
+
+  logging.info('statistics took %.3f s' % (time.time() - fn_start_time,))
+  return {'checkin_counts': checkin_counts,
+          'distances': distance_traveled,
+          'recent_favorites': recent_favorites,
+          'new_favorites': new_favorites,
+          'forgotten_favorites': ''}
+
+
+def favorites_from_last_n_days(day_groups, now, n):
+  recent_day_groups = last_n_days(day_groups, now, n)
   recent_venue_counts = collections.defaultdict(int)
   venue_names =  {}
   for s, g in recent_day_groups:
@@ -333,13 +357,8 @@ def generate_history_stats(history):
         recent_venue_counts[vid] += 1
   recent_favorites = [(vid, count) for vid, count in recent_venue_counts.items()]
   recent_favorites = sorted(recent_favorites, key=lambda f: f[1])
-  recent_favorites = recent_favorites[-3:]
-  recent_favorites = [venue_names[vid] for vid, count in recent_favorites]
+  return recent_favorites, venue_names
 
-  logging.info('statistics took %.3f s' % (time.time() - fn_start_time,))
-  return {'checkin_counts': checkin_counts,
-          'distances': distance_traveled,
-          'recent_favorites': recent_favorites}
 
 
 def last_n_days(day_groups, now, n):
@@ -469,7 +488,30 @@ application = webapp.WSGIApplication([('/authorize', Authorize),
 
 
 def get_entire_history(fs):
-  return foursquare.all_history(fs)
+  history = []
+  logging.info('Getting checkins')
+  for h in foursquare.history_generator(fs):
+    # Annoying that Foursquare uses null/None to indicate zero
+    # checkins.
+    logging.info('Getting more checkins')
+    if h['checkins']:
+      history += h['checkins']
+  return history
+
+def merge_dicts(a, b):
+    if a == None:
+        return b
+    if b == None:
+        return a
+
+    r = {}
+    for key, value in a.items():
+        r[key] = value
+    for key, value in b.items():
+        r[key] = value
+    return r
+
+
 
 def main():
   run_wsgi_app(application)
