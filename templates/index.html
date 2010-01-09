@@ -120,7 +120,6 @@ function last_n(a, n)
 
 function show_stats(stats)
 {
-
     counts = stats.checkin_counts;
     options = {width: 140, height: 25};
     $('#recent-activity-365day-sparkline').sparkline(counts, options);
@@ -133,6 +132,14 @@ function show_stats(stats)
     dojo.byId('recent-favorites').innerHTML = stats.recent_favorites;
     dojo.byId('new-favorites').innerHTML = stats.new_favorites;
     dojo.byId('forgotten-favorites').innerHTML = stats.forgotten_favorites;
+    
+    stats_node = dojo.byId('statistics');
+    dojo.fadeOut({node: stats_node,
+                onEnd: function () {
+                dojo.style(stats_node, "visibility", "visible")
+                dojo.fadeIn({node: dojo.byId('statistics')}).play();
+            }
+        }).play();
 }
 
 
@@ -265,26 +272,28 @@ Authorize to map your checkins:
 OH HAI, {{session_user.name}}!
 <p>
 
-<p class="sparkline-label">365 day activity:</p>
+<div id="statistics" style="visibility: hidden;">
+<p class="stats-label">365 day activity:</p>
 <div id="recent-activity-365day-sparkline"</div>
 
-<p class="sparkline-label">30 day activity:</p>
+<p class="stats-label">30 day activity:</p>
 <div id="recent-activity-30day-sparkline"</div>
 
-<p class="sparkline-label">365 day distances:</p>
+<p class="stats-label">365 day distances:</p>
 <div id="recent-distance-365day-sparkline"</div>
 
-<p class="sparkline-label">30 day distances:</p>
+<p class="stats-label">30 day distances:</p>
 <div id="recent-distance-30day-sparkline"</div>
 
-<p class="sparkline-label">Recent favorites:</p>
-<div id="recent-favorites" class="sparkline-label"></div>
+<p class="stats-label">Recent favorites:</p>
+<div id="recent-favorites" class="stats-text"></div>
 
-<p class="sparkline-label">New favorites:</p>
-<div id="new-favorites" class="sparkline-label"></div>
+<p class="stats-label">New favorites:</p>
+<div id="new-favorites" class="stats-text"></div>
 
-<p class="sparkline-label">Forgotten favorites:</p>
-<div id="forgotten-favorites" class="sparkline-label"></div>
+<p class="stats-label">Forgotten favorites:</p>
+<div id="forgotten-favorites" class="stats-text"></div>
+</div>
 
 {% else %}
 <p>

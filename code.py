@@ -322,28 +322,60 @@ def generate_history_stats(history):
 
   # Compute favorites.
   all_favorites, venue_names = favorites_from_last_n_days(day_groups, now, 10000)  # heh, i rebel.
-  # Recent favorites first.  
+  # Recent favorites are the top venues from the last 30 days.
   recent_favorites, venue_names_2 = favorites_from_last_n_days(day_groups, now, 30)
   venue_names = merge_dicts(venue_names, venue_names_2)
-  recent_favorites = recent_favorites[-5:]
 
-  # New Favorites
-  all_vids = [vid for vid, count in all_favorites][-20:]
-  recent_vids = [vid for vid, count in recent_favorites]
+  # New Favorites are anything in the top 5 recent favorites that
+  # aren't in the top 20 all-time favorites.
+  new_favorites = set_difference(recent_favorites[-5:], all_favorites[-20:], key=FavoriteVenue.vid)
+  new_favorites = set_difference(recent_favorites[-5:], all_favorites[-20:], key=FavoriteVenue.vid)
+  new_favorites = sorted(new_favorites, key=FavoriteVenue.count)
+  # Forgotten favorites are all-time favorites that aren't recent or new favorites.
+  forgotten_favorites = set_difference(all_favorites,
+                                       set_union(recent_favorites[-10:], new_favorites[-10:], key=FavoriteVenue.vid),
+                                       key=FavoriteVenue.vid)
+  forgotten_favorites = sorted(forgotten_favorites, key=FavoriteVenue.count)
+  
 
-  new_vids = set(recent_vids).difference(set(all_vids))
-
-  recent_favorites = [venue_names[vid] for vid, count in recent_favorites[-3:]]
-  new_favorites = [venue_names[vid] for vid in new_vids][-3:]
+  recent_favorites = [venue_names[fave.vid()] for fave in recent_favorites[-3:]]
+  new_favorites = [venue_names[fave.vid()] for fave in new_favorites][-3:]
+  forgotten_favorites = [venue_names[fave.vid()] for fave in forgotten_favorites[-3:]]
 
   logging.info('statistics took %.3f s' % (time.time() - fn_start_time,))
   return {'checkin_counts': checkin_counts,
           'distances': distance_traveled,
           'recent_favorites': recent_favorites,
           'new_favorites': new_favorites,
-          'forgotten_favorites': ''}
+          'forgotten_favorites': forgotten_favorites}
+
+def set_difference(a, b, key=lambda x: x):
+  a_map = {}
+  for e in a:
+    a_map[key(e)] = e
+  for e in b:
+    if key(e) in a_map:
+      del a_map[key(e)]
+  return a_map.values()
+
+def set_union(a, b, key=lambda x: x):
+  result = {}
+  for e in a:
+    result[key(e)] = e
+  for e in b:
+    result[key(e)] = e
+  return result.values()
 
 
+class FavoriteVenue:
+  def __init__(self, vid, count):
+    self.venue_id = vid
+    self.checkin_count = count
+  def count(self):
+    return self.checkin_count
+  def vid(self):
+    return self.venue_id
+    
 def favorites_from_last_n_days(day_groups, now, n):
   recent_day_groups = last_n_days(day_groups, now, n)
   recent_venue_counts = collections.defaultdict(int)
@@ -355,8 +387,8 @@ def favorites_from_last_n_days(day_groups, now, n):
         vid = venue['id']
         venue_names[vid] = venue['name']
         recent_venue_counts[vid] += 1
-  recent_favorites = [(vid, count) for vid, count in recent_venue_counts.items()]
-  recent_favorites = sorted(recent_favorites, key=lambda f: f[1])
+  recent_favorites = [FavoriteVenue(vid, count) for vid, count in recent_venue_counts.items()]
+  recent_favorites = sorted(recent_favorites, key=FavoriteVenue.count)
   return recent_favorites, venue_names
 
 

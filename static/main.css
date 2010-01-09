@@ -2,7 +2,7 @@
 
 body {
     background: rgb(198, 227, 254);
-    margin: 1px 25px 1px 25px;
+    margin: 1px 15px 1px 15px;
     font-family: Tahoma;
     font-size: 10pt;
     font-weight: normal;
@@ -83,9 +83,18 @@ h1 {
 .progress-image {
 }
 
-.sparkline-label {
-    font-size: 8pt;
+.stats-label {
+    font-size: 9pt;
+    margin-top: 5px;
+    margin-bottom: 0px;
 }
+
+.stats-text {
+    font-size: 8pt;
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+
 
 #public_users {
     font-size: 9pt;
