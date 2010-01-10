@@ -235,7 +235,7 @@ preload_pa.src = "/static/progress-anim.gif";
 <!-- HEADER -->
 <div id="header">
 <div class="lfloat">
-<b>4mapper</b> - Showing you <a href="http://playfoursquare.com/">where you've been</a>.
+<b>4mapper</b> - Showing you <a href="http://foursquare.com/">where you've been</a>.
 </div>
 
 <div class="rfloat">
@@ -268,7 +268,7 @@ Authorize to map your checkins:
 <div id="map_canvas" class="column"></div>
 <div id="sidebar" class="column">
 {% if session_user %}
-<img src="{{session_user.picture}}"><br>
+<img src="{{session_user.picture}}" alt="{{session_user.name}}" title="{{session_user.name}}"><br>
 OH HAI, {{session_user.name}}!
 <p>
 
