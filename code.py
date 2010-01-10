@@ -347,7 +347,8 @@ def generate_history_stats(history):
           'distances': distance_traveled,
           'recent_favorites': recent_favorites,
           'new_favorites': new_favorites,
-          'forgotten_favorites': forgotten_favorites}
+          'forgotten_favorites': forgotten_favorites,
+          'blurb': ''}
 
 def set_difference(a, b, key=lambda x: x):
   a_map = {}
