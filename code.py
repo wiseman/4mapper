@@ -169,7 +169,7 @@ class PublicUsersPage(webapp.RequestHandler):
     # Randomize the order
     random.shuffle(public_users)
     template_values = {'public_users': public_users}
-    self.response.out.write(render_template('public.html', template_values))
+    self.response.out.write(render_template('users.html', template_values))
 
 
 def get_foursquare(session):
