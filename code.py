@@ -13,6 +13,7 @@ import datetime
 import itertools
 import math
 import collections
+import random
 
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp.util import run_wsgi_app
@@ -150,16 +151,25 @@ class MainPage(webapp.RequestHandler):
       map_user = get_user_record(self.request.get('uid'))
     else:
       map_user = session_user
-    # Figure out which users have made their histories public.
-    public_user_q = History.gql('WHERE public = :1 ORDER BY history_date DESC', True)
-    public_users = public_user_q.fetch(7)
-    
+
     template_values = {'gmaps_api_key': gmaps_api_key,
-                       'public_users': public_users,
                        'session_user': session_user,
                        'map_user': map_user}
     logging.info(template_values)
     self.response.out.write(render_template('index.html', template_values))
+
+
+class PublicUsersPage(webapp.RequestHandler):
+  "This page displays all users with public histories."
+  def get(self):
+    # Figure out which users have made their histories public.
+    public_user_q = History.gql('WHERE public = :1', True)
+    public_users = list(public_user_q)
+
+    # Randomize the order
+    random.shuffle(public_users)
+    template_values = {'public_users': public_users}
+    self.response.out.write(render_template('public.html', template_values))
 
 
 def get_foursquare(session):
@@ -226,6 +236,7 @@ class OAuthCallback(webapp.RequestHandler):
     
     session.save()
     self.redirect('/')
+
 
 class FourHistory(webapp.RequestHandler):
   """This is an Ajax endpoint that returns a user's checkin history.
@@ -514,6 +525,7 @@ application = webapp.WSGIApplication([('/authorize', Authorize),
                                       ('/4/history', FourHistory),
                                       ('/4/user', FourUser),
                                       ('/', MainPage),
+                                      ('/public', PublicUsersPage),
                                       ('/admin', AdminPage),
                                       ('/.*', PageNotFound)],
                                      #debug=True

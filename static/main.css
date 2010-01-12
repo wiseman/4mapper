@@ -25,6 +25,12 @@ div.spacer {
     float: left;
 }
 
+.public_user_photo {
+    float: left;
+    text-align: center;
+    margin: 5px 5px 5px 5px;
+}
+
 #header {
     font-size: 12pt;
     margin-bottom: 10px;

@@ -1,0 +1,31 @@
+{% comment %}
+Variables used by this template:
+
+public_users
+
+{% endcomment %}
+<html>
+<head>
+<link href="static/main.css" rel="stylesheet" type="text/css">
+
+<title>4mapper - Public histories</title>
+</head>
+
+<body onunload="GUnload()">
+
+<!-- HEADER -->
+<div id="header">
+<b>4mapper</b> - Showing you <a href="http://foursquare.com/">where you've been</a>.
+</div>
+
+<p>
+Select a user below to see their checkins:
+</p>
+
+{% for user in public_users %}
+<div class="public_user_photo">
+<a href="/?uid={{user.uid}}"><img src="{{user.picture}}" alt="{{user.name}}" title="{{user.name}}"><br></a>
+{{user.name}}
+</a>
+</div>
+{% endfor %}
