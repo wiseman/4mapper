@@ -24,7 +24,7 @@ Select a user below to see their checkins:
 
 {% for user in public_users %}
 <div class="public_user_photo">
-<a href="/?uid={{user.uid}}"><img src="{{user.picture}}" alt="{{user.name}}" title="{{user.name}}"><br></a>
+<a href="/?uid={{user.uid}}"><img src="{{user.picture}}" alt="{{user.name}}" title="{{user.name}}" width="75" height="75"><br></a>
 {{user.name}}
 </a>
 </div>

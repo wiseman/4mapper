@@ -121,8 +121,11 @@ class AdminPage(webapp.RequestHandler):
 
 def seconds_since_epoch_of_checkin(c):
   import rfc822
-  checkin_ts = time.mktime(rfc822.parsedate(c['created']))
-  #logging.info('date of: %s' % (checkin_ts,))
+  try:
+    checkin_ts = time.mktime(rfc822.parsedate(c['created']))
+  except:
+    logging.error("unable to parse date of %s" % (`c`,))
+    raise
   return checkin_ts
 
 
@@ -165,7 +168,7 @@ class PublicUsersPage(webapp.RequestHandler):
     # Figure out which users have made their histories public.
     public_user_q = History.gql('WHERE public = :1', True)
     public_users = list(public_user_q)
-
+    logging.info('Have %s users with public histories.' % (len(public_users,)))
     # Randomize the order
     random.shuffle(public_users)
     template_values = {'public_users': public_users}
@@ -264,7 +267,11 @@ class FourHistory(webapp.RequestHandler):
         if current_user != uid:
           raise FourMapperException('No history for user %s.' % (uid,))
       history = simplejson.loads(user_record.history)
-      
+      if 'checkins' in history:
+        history = history['checkins']
+      # Now add a seconds-since-epoch version of each checkin
+      # timestamp.
+      history = add_created_epoch(history)
     else:
       # Get latest history for current user.
       history = get_entire_history(fs)
@@ -277,16 +284,7 @@ class FourHistory(webapp.RequestHandler):
 
       # Now add a seconds-since-epoch version of each checkin
       # timestamp.
-      h = []
-      for c in history:
-        try:
-          checkin_ts = seconds_since_epoch_of_checkin(c)
-        except Exception, e:
-          logging.error('Bad checkin date for user %s, checkin %s: %s' % (session['uid'], c, e))
-        else:
-          c['created_epoch'] = checkin_ts
-          h.append(c)
-      history = h
+      history = add_created_epoch(history)
       
       # Store the history.
       store_user_history(session['uid'], history)
@@ -299,6 +297,15 @@ class FourHistory(webapp.RequestHandler):
     
     self.response.out.write(simplejson.dumps(result))
 
+def add_created_epoch(history):
+  # Now add a seconds-since-epoch version of each checkin
+  # timestamp.
+  h = []
+  for c in history:
+    c['created_epoch'] = checkin_ts = seconds_since_epoch_of_checkin(c)
+    h.append(c)
+  return h
+  
 
 def generate_history_stats(history):
   fn_start_time = time.time()
@@ -319,8 +326,12 @@ def generate_history_stats(history):
   cutoff_date = now - datetime.timedelta(days=365)
   day_groups = [(s, g) for (s, g) in day_groups if s >= cutoff_date]
 
-  # Compute checkin counts and distances.
+  # Compute checkin counts and distances for each day, and total
+  # number of checkins along with number of days with a checkin.
+  total_checkin_count = 0
+  day_count = len(day_groups)
   for start_time, group in day_groups:
+    total_checkin_count += len(group)
     assert start_time >= cutoff_date
     for checkin in group:
       time_delta = now - datetime.datetime.fromtimestamp(checkin['created_epoch'])
@@ -329,7 +340,6 @@ def generate_history_stats(history):
       index = 364 - time_delta.days
       checkin_counts[index] += 1
     distance_traveled[index] = distance_between_checkins(group)
-
 
   # Compute favorites.
   all_favorites, venue_names = favorites_from_last_n_days(day_groups, now, 10000)  # heh, i rebel.
@@ -354,7 +364,9 @@ def generate_history_stats(history):
   forgotten_favorites = [venue_names[fave.vid()] for fave in forgotten_favorites[-3:]]
 
   logging.info('statistics took %.3f s' % (time.time() - fn_start_time,))
-  return {'checkin_counts': checkin_counts,
+  return {'total_checkins': total_checkin_count,
+          'checkin_days': day_count,
+          'checkin_counts': checkin_counts,
           'distances': distance_traveled,
           'recent_favorites': recent_favorites,
           'new_favorites': new_favorites,
@@ -422,7 +434,10 @@ def distance_between_checkins(checkins):
   checkins = [c for c in checkins if 'venue' in c and 'geolat' in c['venue']]
   distance = 0.0
   for a, b in window(checkins, 2):
-    distance += distance_between(a, b)
+    d = distance_between(a, b)
+#    logging.info('pair: %s %s' % (d, (a, b),))
+    distance += d
+    assert distance >= 0.0 and distance < 999999999.0, 'Bad distance %s for these checkins: %s' % (d, (a, b))
   return distance
 
 def distance_between(c1, c2):
@@ -431,14 +446,21 @@ def distance_between(c1, c2):
 
   v1 = c1['venue']
   v2 = c2['venue']
+
   lat1 = to_rad(v1['geolat'])
   lon1 = to_rad(v1['geolong'])
   lat2 = to_rad(v2['geolat'])
   lon2 = to_rad(v2['geolong'])
   r = 6371
-  d = math.acos(math.sin(lat1) * math.sin(lat2) + \
-                math.cos(lat1) * math.cos(lat2) * \
-                math.cos(lon2 - lon1)) * r
+  p = math.sin(lat1) * math.sin(lat2) + \
+      math.cos(lat1) * math.cos(lat2) * \
+      math.cos(lon2 - lon1)
+  if p >= 1.0:
+    d = 0.0
+  else:
+    d = math.acos(math.sin(lat1) * math.sin(lat2) + \
+                  math.cos(lat1) * math.cos(lat2) * \
+                  math.cos(lon2 - lon1)) * r
   return d
   
 
@@ -525,7 +547,7 @@ application = webapp.WSGIApplication([('/authorize', Authorize),
                                       ('/4/history', FourHistory),
                                       ('/4/user', FourUser),
                                       ('/', MainPage),
-                                      ('/public', PublicUsersPage),
+                                      ('/users', PublicUsersPage),
                                       ('/admin', AdminPage),
                                       ('/.*', PageNotFound)],
                                      #debug=True

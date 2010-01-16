@@ -1,4 +1,10 @@
-/* reset */
+/*
+   
+   I'm using the three-column implementation described at
+   http://www.alistapart.com/articles/holygrail/
+
+   Our left & right columns (LC and RC) are each 150px wide.
+*/
 
 body {
     background: rgb(198, 227, 254);
@@ -6,7 +12,51 @@ body {
     font-family: Tahoma;
     font-size: 10pt;
     font-weight: normal;
+
+    min-width: 450px; /* 2x LC width + RC width */
 }
+
+   
+#content-container {
+    padding-left: 150px;  /* LC width */
+    padding-right: 150px; /* RC width */
+}
+
+#content-container .column {
+    position: relative;
+    float: left;
+}
+
+#center {
+    min-height: 200px;
+    height: 80%;
+    width: 100%;
+}
+
+#sidebar-left {
+    width: 145px;        /* LC full width - padding */
+    padding-right: 5px;
+    right: 150px;        /* LC full width */
+    margin-left: -100%;
+}
+
+#sidebar-right {
+    width: 140px;
+    padding-left: 10px;
+    margin-right: -150px;
+}
+
+#footer {
+    clear: both;
+    background: rgb(200,200,200);
+    margin-top: 20px;
+}
+
+/* IE 6 fix */
+* html #sidebar-left {
+    left: 150px;
+}
+
 
 div.rfloat {
     float: right;
@@ -18,11 +68,6 @@ div.lfloat {
 
 div.spacer {
     clear: both;
-}
-
-.column {
-    position: relative;
-    float: left;
 }
 
 .public_user_photo {
@@ -41,28 +86,6 @@ div.spacer {
     padding-left: 150px;
 }
 
-#content {
-    padding-left: 150px;
-}
-
-#sidebar {
-    width: 140px;
-    right: 150px;
-    margin-left: -100%;
-}
-
-#map_canvas {
-    min-height: 200px;
-    height: 80%;
-    width: 100%;
-}
-
-
-#footer {
-    clear: both;
-    background: rgb(200,200,200);
-    margin-top: 20px;
-}
 
 form {
     margin: 0px 0px 0px 0px;
@@ -123,10 +146,6 @@ h1 {
 }
 
 
-/*
-div.header { max-width:700px; background:#122b33; padding-right:42px;  }
-div.content { margin:30px; border:1px solid #333; padding:20px; max-width:700px; }
-*/
 
 div#desc { padding-top:20px; border-top:2px solid #333; }
 .cartographer-balloon { font-family:Verdana,Arial; font-size:11px; }
