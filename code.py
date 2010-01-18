@@ -28,7 +28,9 @@ import foursquare
 
 
 class FourMapperException(Exception):
-  pass
+  def __init__(self, http_status, msg):
+    Exception.__init__(self, msg)
+    self.http_status = http_status
 
 
 class History(db.Model):
@@ -42,16 +44,13 @@ class History(db.Model):
 def get_user_record(uid):
   uid = int(uid)
   user_q = History.gql('WHERE uid = :1', uid)
-  logging.info('user_q: %s' % (user_q,))
   users = user_q.fetch(2)
-  logging.info('users: %s', users)
-  if len(users) > 1:
-    logging.error('Multiple records for uid %s' % (uid,))
-
-  logging.info('queried for user %s, got %s records' % (`uid`, len(users)))
   if len(users) > 0:
+    if len(users) > 1:
+      logging.error('Multiple records for uid %s: %s' % (uid, users))
     return users[0]
   else:
+    logging.warn('User %s not in database.' % (uid,))
     return None
 
 def make_user_record(uid, name, picture):
@@ -90,42 +89,26 @@ class AdminPage(webapp.RequestHandler):
   def get(self):
     # Make sure only I can access this.
     user = gaeusers.get_current_user()
-    if user:
+    if not user:
+      self.redirect(gaeusers.create_login_url(self.request.uri))
+    else:
       self.response.out.write('Hi, %s\n\n' % (user.nickname(),))
       if not gaeusers.is_current_user_admin():
         self.response.out.write('Sorry, you need to be an administrator to view this page.\n')
       else:
-        self.response.out.write('Cool, you are an adminnnistrator.\n')
-
-        earliest_date = None
-        earliest_user = None
-        logging.info('About to get some users.')
-        users = db.GqlQuery('SELECT * FROM History')
-        logging.info('Got some users: %s' % (users,))
-        for user in users:
-          logging.info('user: %s %s' % (user.name, user.uid))
-          history = simplejson.loads(user.history)
-          history_ts = [(c, seconds_since_epoch_of_checkin(c)) for c in history['checkins']]
-          history_ts = sorted(history_ts, key=lambda c: c[1])
-          if len(history_ts) > 0:
-            logging.info('hist: %s' % (history_ts[0],))
-            if not earliest_date or history_ts[0][1] < earliest_date:
-              earliest_date = history_ts[0][1]
-              earliest_user = user.uid
-              logging.info('Got new earliest date %s, user %s' % (earliest_date, user.name))
-        self.response.out.write('%s %s' % (time.localtime(earliest_date),
-                                           earliest_user))
-    else:
-      self.redirect(gaeusers.create_login_url(self.request.uri))
-
+        self.response.out.write('Cool, you are an administrator.\n')
+        # Logged in user is an admin user.
+        # Dump all uids.
+        users = list(History.all())
+        self.response.out.write(' '.join([str(u.uid) for u in users]))
 
 def seconds_since_epoch_of_checkin(c):
   import rfc822
   try:
     checkin_ts = time.mktime(rfc822.parsedate(c['created']))
-  except:
-    logging.error("unable to parse date of %s" % (`c`,))
-    raise
+  except Exception, e:
+    logging.error("Unable to parse date of checkin %s: %s" % (`c`, e))
+    raise FourMapperException(500, 'Unable to parse date in checkin')
   return checkin_ts
 
 
@@ -152,13 +135,14 @@ class MainPage(webapp.RequestHandler):
     # Which user are we mapping (if any)?
     if 'uid' in self.request.arguments():
       map_user = get_user_record(self.request.get('uid'))
+      if not map_user:
+        raise FourMapperException(400, 'No such user %s' % (self.request.get('uid'),))
     else:
       map_user = session_user
 
     template_values = {'gmaps_api_key': gmaps_api_key,
                        'session_user': session_user,
                        'map_user': map_user}
-    logging.info(template_values)
     self.response.out.write(render_template('index.html', template_values))
 
 
@@ -168,7 +152,7 @@ class PublicUsersPage(webapp.RequestHandler):
     # Figure out which users have made their histories public.
     public_user_q = History.gql('WHERE public = :1', True)
     public_users = list(public_user_q)
-    logging.info('Have %s users with public histories.' % (len(public_users,)))
+    logging.info('Displaying %s users with public histories.' % (len(public_users,)))
     # Randomize the order
     random.shuffle(public_users)
     template_values = {'public_users': public_users}
@@ -255,47 +239,50 @@ class FourHistory(webapp.RequestHandler):
     # retrieving someone else's history?
     if 'uid' in self.request.arguments() and \
        (not 'uid' in session or int(self.request.get('uid')) != session['uid']):
+      #
+      # We're getting someone else's history.
+      #
       uid = int(self.request.get('uid'))
       user_record = get_user_record(uid)
-      logging.info('got user record %s' % (user_record,))
+
       if not user_record:
-        raise FourMapperException('No history for user %s' % (uid,))
+        logging.error('User %s has no history record.' % (uid,))
+        raise FourMapperException(400, 'No history for user.')
 
       if not user_record.public:
-        current_user = session['uid']
-        logging.info('current: %s, uid: %s' % (`current_user`, `uid`))
-        if current_user != uid:
-          raise FourMapperException('No history for user %s.' % (uid,))
+          logging.error('User %s has a private history.' % (uid,))
+          raise FourMapperException(403, 'No public history for user.')
+
       history = simplejson.loads(user_record.history)
-      if 'checkins' in history:
-        history = history['checkins']
-      # Now add a seconds-since-epoch version of each checkin
-      # timestamp.
-      history = add_created_epoch(history)
+      history = massage_history(history)
     else:
+      #
       # Get latest history for current user.
+      #
       history = get_entire_history(fs)
-
-      # Massage it a little.
-      if 'checkins' in history:
-        history = history['checkins']
-      if history == None:
-        history = []
-
-      # Now add a seconds-since-epoch version of each checkin
-      # timestamp.
-      history = add_created_epoch(history)
-      
+      history = massage_history(history)
       # Store the history.
       store_user_history(session['uid'], history)
 
     logging.info('history took %.3f s' % (time.time() - start_time,))
-    self.response.headers['Content-Type'] = 'text/plain'
 
+    self.response.headers['Content-Type'] = 'text/plain'
     result = {'checkins': history,
               'statistics': generate_history_stats(history)}
-    
     self.response.out.write(simplejson.dumps(result))
+
+
+def massage_history(history):
+  # Massage the history a bit.
+  if 'checkins' in history:
+    history = history['checkins']
+  if history == None:
+    history = []
+  # Now add a seconds-since-epoch version of each checkin
+  # timestamp.
+  history = add_created_epoch(history)
+  return history
+  
 
 def add_created_epoch(history):
   # Now add a seconds-since-epoch version of each checkin
@@ -497,7 +484,6 @@ class FourUser(webapp.RequestHandler):
     fs = get_foursquare(session)
     start_time = time.time()
     user = fs.user()
-    logging.info('user took %.3f s' % (time.time() - start_time,))
     self.response.headers['Content-Type'] = 'text/plain'
     self.response.out.write(simplejson.dumps(user))
 
@@ -515,7 +501,7 @@ class ToggleHistoryAccess(webapp.RequestHandler):
     user = fs.user()['user']
     uid = user['id']
     user_record = get_user_record(uid)
-    logging.info('Changing public for uid %s from %s to %s' %
+    logging.info('Toggling public for uid %s from %s to %s' %
                  (uid, user_record.public, not user_record.public))
     user_record.public = not user_record.public
     user_record.put()
@@ -556,11 +542,11 @@ application = webapp.WSGIApplication([('/authorize', Authorize),
 
 def get_entire_history(fs):
   history = []
-  logging.info('Getting checkins')
+  logging.info('Getting all checkins for user')
   for h in foursquare.history_generator(fs):
     # Annoying that Foursquare uses null/None to indicate zero
     # checkins.
-    logging.info('Getting more checkins')
+    logging.info('  Getting more checkins...')
     if h['checkins']:
       history += h['checkins']
   return history
