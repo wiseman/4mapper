@@ -86,6 +86,11 @@ div.spacer {
     padding-left: 150px;
 }
 
+#error {
+    text-align: center;
+}
+
+
 
 form {
     margin: 0px 0px 0px 0px;

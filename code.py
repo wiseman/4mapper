@@ -85,7 +85,18 @@ def get_key(name, secret=False):
   key_cache[name] = value
   return value
 
-class AdminPage(webapp.RequestHandler):
+
+class FourMapperRequestHandler(webapp.RequestHandler):
+  def handle_exception(self, exception, debug_mode):
+    logging.error('exception: %s %s' % (repr(exception), str(exception)))
+    if debug_mode or not isinstance(exception, FourMapperException):
+      webapp.RequestHandler.handle_exception(self, exception, debug_mode)
+    else:
+      self.error(exception.http_status)
+      self.response.out.write(str(exception))
+
+
+class AdminPage(FourMapperRequestHandler):
   def get(self):
     # Make sure only I can access this.
     user = gaeusers.get_current_user()
@@ -112,7 +123,7 @@ def seconds_since_epoch_of_checkin(c):
   return checkin_ts
 
 
-class MainPage(webapp.RequestHandler):
+class MainPage(FourMapperRequestHandler):
   "This is the main app page."
   def get(self):
     session = gmemsess.Session(self)
@@ -146,7 +157,7 @@ class MainPage(webapp.RequestHandler):
     self.response.out.write(render_template('index.html', template_values))
 
 
-class PublicUsersPage(webapp.RequestHandler):
+class PublicUsersPage(FourMapperRequestHandler):
   "This page displays all users with public histories."
   def get(self):
     # Figure out which users have made their histories public.
@@ -171,7 +182,7 @@ def get_foursquare(session):
     fs.credentials.set_access_token(user_token)
   return fs
 
-class Authorize(webapp.RequestHandler):
+class Authorize(FourMapperRequestHandler):
   """This page is used to do the oauth dance.  It gets an app token
   from foursquare, saves it in the session, then redirects to the
   foursquare authorization page.  That authorization page then
@@ -193,7 +204,7 @@ class Authorize(webapp.RequestHandler):
     self.redirect(auth_url)
 
 
-class OAuthCallback(webapp.RequestHandler):
+class OAuthCallback(FourMapperRequestHandler):
   """This is our oauth callback, which the foursquare authorization
   page will redirect to.  It gets the user token from foursquare,
   saves it in the session, and redirects to the main page.
@@ -225,7 +236,7 @@ class OAuthCallback(webapp.RequestHandler):
     self.redirect('/')
 
 
-class FourHistory(webapp.RequestHandler):
+class FourHistory(FourMapperRequestHandler):
   """This is an Ajax endpoint that returns a user's checkin history.
   Requires Foursquare authorization.
   """
@@ -238,7 +249,7 @@ class FourHistory(webapp.RequestHandler):
     # ask foursquare so as to get the latest info, or are we
     # retrieving someone else's history?
     if 'uid' in self.request.arguments() and \
-       (not 'uid' in session or int(self.request.get('uid')) != session['uid']):
+       ((not 'uid' in session) or (int(self.request.get('uid')) != session['uid'])):
       #
       # We're getting someone else's history.
       #
@@ -478,7 +489,7 @@ def store_user_history(uid, history):
   user_record.put()
   
   
-class FourUser(webapp.RequestHandler):
+class FourUser(FourMapperRequestHandler):
   def get(self):
     session = gmemsess.Session(self)
     fs = get_foursquare(session)
@@ -488,7 +499,7 @@ class FourUser(webapp.RequestHandler):
     self.response.out.write(simplejson.dumps(user))
 
 
-class ToggleHistoryAccess(webapp.RequestHandler):
+class ToggleHistoryAccess(FourMapperRequestHandler):
   def get(self):
     session = gmemsess.Session(self)
     user_record = get_user_record(session['uid'])
@@ -509,7 +520,7 @@ class ToggleHistoryAccess(webapp.RequestHandler):
       self.redirect(self.request.get('r'))
     
   
-class Logout(webapp.RequestHandler):
+class Logout(FourMapperRequestHandler):
   def get(self):
     session = gmemsess.Session(self)
     session.invalidate()
