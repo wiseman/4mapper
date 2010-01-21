@@ -50,60 +50,65 @@ function display_history(history) {
 }
 
 function map_checkins(checkins) {
-    console.log('Mapping ' + checkins.length + ' checkins.');
-    data = [];
-    n = 0;
-    for (i = 0; i < checkins.length; i++) {
-        if (typeof(checkins[i].venue) != "undefined") {
-            venue = checkins[i].venue;
-            if (typeof(venue.geolat) != "undefined") {
-                data[n] = {lat: venue.geolat, lng: venue.geolong, val: 1, label: venue.name, created_epoch: checkins[i].created_epoch};
-                n += 1;
+    try {
+        console.log('Mapping ' + checkins.length + ' checkins.');
+        data = [];
+        n = 0;
+        for (i = 0; i < checkins.length; i++) {
+            if (typeof(checkins[i].venue) != "undefined") {
+                venue = checkins[i].venue;
+                if (typeof(venue.geolat) != "undefined") {
+                    data[n] = {lat: venue.geolat, lng: venue.geolong, val: 1, label: venue.name, created_epoch: checkins[i].created_epoch};
+                    n += 1;
+                }
             }
         }
-    }
-    if (data.length > 0) {
-        centroid(data);
-
-        if( GBrowserIsCompatible() ) {
-            cartographer = Cartographer(g_map, {colorize:"#000",
-                                                colorizeAlpha:.5});
-            cartographer.cluster(data, {
+        if (data.length > 0) {
+            centroid(data);
+            
+            if( GBrowserIsCompatible() ) {
+                cartographer = Cartographer(g_map, {colorize:"#000",
+                            colorizeAlpha:.5});
+                cartographer.cluster(data, {
                         gridSize: 35,
-                        gridColor: "#c00",
-                        enableGrid: false,
-                        color:"#fff",
-                        colorHover:"#fff",
-                        stroke:"#fff",
-                        popup:"reduce",
-                        balloon: function (obj) {
-                        var s = '<div><font size="-2">';
-                        var last_label = '';
-                        var counts = {};
-                        for (var i = 0; i < obj.items.length; i++) {
-                            var label = obj.items[i].label;
-                            if (label in counts) {
-                                counts[label] += 1;
-                            } else {
-                                counts[label] = 1;
+                            gridColor: "#c00",
+                            enableGrid: false,
+                            color:"#fff",
+                            colorHover:"#fff",
+                            stroke:"#fff",
+                            popup:"reduce",
+                            balloon: function (obj) {
+                            var s = '<div><font size="-2">';
+                            var last_label = '';
+                            var counts = {};
+                            for (var i = 0; i < obj.items.length; i++) {
+                                var label = obj.items[i].label;
+                                if (label in counts) {
+                                    counts[label] += 1;
+                                } else {
+                                    counts[label] = 1;
+                                }
                             }
-                        }
-                        for (label in counts) {
-                            if (counts[label] > 1) {
-                                s += label + ' (x' + counts[label] + ')<br/>';
-                            } else {
-                                s += label + '<br/>';
+                            for (label in counts) {
+                                if (counts[label] > 1) {
+                                    s += label + ' (x' + counts[label] + ')<br/>';
+                                } else {
+                                    s += label + '<br/>';
+                                }
                             }
+                            s += "<\/font><\/div>";
+                            return s;
                         }
-                        s += "<\/font><\/div>";
-                        return s;
-                    }
-                } );
-            g_map.setCenter(centroid(data), Math.max(g_map.getZoom(),2));
+                    } );
+                g_map.setCenter(centroid(data), Math.max(g_map.getZoom(),2));
+            }
         }
+        
+        set_progress(false, '');
     }
-
-    set_progress(false, '');
+    catch (e) {
+        display_error('<p>Oops, sorry&#8212;something went wrong when trying to map these checkins.  You should <a href="mailto:jjwiseman@gmail.com">mail John</a> and let him know!  Thanks.</p><p>Details: ' + e + '</p>');
+    }
 }
 
 function last_n(a, n)
@@ -209,7 +214,7 @@ function display_error(html) {
                     start: containerNode.backgroundColor,
                         end: "red"
                         },
-                    height:        {start: "0", end: "50", unit: "px" },
+                    height:        {start: "0", end: "75", unit: "px" },
                     marginTop:     {start: "0", end: "0.2", unit: "cm"},
                     marginBottom:  {start: "0", end: "0.2", unit: "cm"},
                     paddingTop:    {start: "0", end: "0.2", unit: "cm"},
