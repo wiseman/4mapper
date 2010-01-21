@@ -88,9 +88,10 @@ def get_key(name, secret=False):
 
 class FourMapperRequestHandler(webapp.RequestHandler):
   def handle_exception(self, exception, debug_mode):
-    logging.error('exception: %s %s' % (repr(exception), str(exception)))
+    logging.error('exception: %s\n%s' % (repr(exception), str(exception)))
     if debug_mode or not isinstance(exception, FourMapperException):
-      webapp.RequestHandler.handle_exception(self, exception, debug_mode)
+      self.error(500)
+      self.response.out.write(str(exception))
     else:
       self.error(exception.http_status)
       self.response.out.write(str(exception))
@@ -148,8 +149,6 @@ class MainPage(FourMapperRequestHandler):
       map_user = get_user_record(self.request.get('uid'))
       if not map_user:
         raise FourMapperException(400, 'No such user %s' % (self.request.get('uid'),))
-    else:
-      map_user = session_user
 
     template_values = {'gmaps_api_key': gmaps_api_key,
                        'session_user': session_user,
@@ -233,7 +232,7 @@ class OAuthCallback(FourMapperRequestHandler):
       user_record.put()
     
     session.save()
-    self.redirect('/')
+    self.redirect('/?uid=%s' % (uid,))
 
 
 class FourHistory(FourMapperRequestHandler):

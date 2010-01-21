@@ -176,16 +176,21 @@ function do_map(uid) {
 function handle_error(error, args) {
     if (error.status == 200) {
         /* Problem in our javascript? */
-        display_error('<p>Uh oh: ' + error + '.</p>');
+        display_error('<p>Uh oh: ' + html_encode(error) + '.</p>');
     } else {
         if (error.status >= 500 && error.status < 600) {
-            display_error("<p>I'm sorry, something went terribly wrong inside me: '" + error.responseText + " The administrator will be notified.</p>");
+            display_error("<p>I'm sorry, something went terribly wrong inside me: '" + html_encode(error.message) + "' The administrator will be notified.</p>");
         } else if (error.status >= 400 && error.status < 500) {
-            display_error("<p>That didn't work for some reason: " + error.responseText + " The administrator will be notified.</p>");
+            display_error("<p>That didn't work for some reason: " + html_encode(error.message) + " The administrator will be notified.</p>");
         } else {
-            display_error("<p>Oops: " + error.responseText + ".</p>");
+            display_error("<p>Oops: " + html_encode(error.message) + ".</P>");
         }
     }
+}
+
+function html_encode(text) {
+    text.replace(/</g, "lt;").replace(/>/g, "gt;").replace(/\&/g, "amp;").replace(/\"/g, "quot;");
+    return text
 }
 
 
@@ -318,6 +323,9 @@ Or maybe you just want to look at a map of <a href="/users">someone else's</a> c
 <img src="{{session_user.picture}}" alt="{{session_user.name}}" title="{{session_user.name}}"><br>
 OH HAI, {{session_user.name}}!
 </p>
+
+{% if not map_user %}
+{% endif %}
 
 {% endif %}
 </div>

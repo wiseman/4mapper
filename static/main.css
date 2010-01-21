@@ -135,11 +135,6 @@ h1 {
 }
 
 
-.button:active {
-    background: rgb(128,128,128);
-
-}
-
 .note {
     font-size: 9pt;
 }
