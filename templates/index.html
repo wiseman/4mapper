@@ -46,7 +46,7 @@ function load() {
 
 function display_history(history) {
     map_checkins(history.checkins);
-    show_stats(history.statistics);
+    show_stats(history);
 }
 
 function map_checkins(checkins) {
@@ -131,9 +131,11 @@ function list_or_none(a)
 }
 
 
-function show_stats(stats)
+function show_stats(history)
 {
-    dojo.byId('stats-summary').innerHTML = stats.total_checkins + ' checkins on ' + stats.checkin_days + ' days.';
+    var last_updated = new Date(history.history_date * 1000);
+    var stats = history.statistics;
+    dojo.byId('stats-summary').innerHTML = stats.total_checkins + ' checkins on ' + stats.checkin_days + ' days.  History last updated ' + last_updated.toDateString() + '.';
     counts = stats.checkin_counts;
     options = {width: 140, height: 25};
     $('#recent-activity-365day-sparkline').sparkline(counts, options);
@@ -272,24 +274,24 @@ preload_pa.src = "/static/progress-anim.gif";
 <!-- HEADER -->
 <div id="header">
 <div class="lfloat">
-<b>4mapper</b> - Showing you <a href="http://foursquare.com/">where you've been</a>.
+<a class="undecorated" href="/"><b>4mapper</b></a> - Mapping <a href="http://foursquare.com/">Foursquare</a>.
 </div>
 
 <div class="rfloat">
 {% if not session_user %}
 <form action="/authorize" method="POST">
-Authorize to map your checkins:
-<input class="button" type="submit" value="Authorize">
+Sign in with Foursquare to map your checkins:
+<input class="button" type="submit" value="Sign in">
 </form>
 {% else %}
 <form action="/toggle_public" method="POST">
 <small>Your history is</small>
 {% if session_user.public %}
-<b>public</b>
-<input type="submit" value="make it private"
+<b>public</b>:
+<input type="submit" value="Make it private"
 {% else %}
-<b>private</b>
-<input type="submit" value="make it public"
+<b>private</b>:
+<input type="submit" value="Make it public"
 {% endif %}
 <input type="hidden" name="r" value="/">
 </form>
@@ -307,11 +309,11 @@ Authorize to map your checkins:
 <div id="sidebar-left" class="column">
 {% if not session_user %}
 <p>
-Use the Authorize button to put your checkins on the map and generate some personal statistics.
+Use the "Sign in" button to put your checkins on the map and generate some personal statistics.
 </p>
 
 <p>
-Once you've authorized, you can choose to let other people see your map and stats.
+Once you've signed in, you can choose to let other people see your map and stats.
 </p>
 
 <p>
@@ -320,8 +322,19 @@ Or maybe you just want to look at a map of <a href="/users">someone else's</a> c
 
 {% else %}
 <p>
-<img src="{{session_user.picture}}" alt="{{session_user.name}}" title="{{session_user.name}}"><br>
-OH HAI, {{session_user.name}}!
+OH HAI, {{session_user.name}}!<br>
+<img src="{{session_user.picture}}" alt="{{session_user.name}}" title="{{session_user.name}}">
+</p>
+
+<p>
+You can let other people see your map with the "Make it public" button.
+</p>
+<p>
+If you change your mind after making it public, just use the "Make it private" button.
+</p>
+
+<p>
+Or maybe you just want to look at a map of <a href="/users">someone else's</a> checkins.
 </p>
 
 {% if not map_user %}

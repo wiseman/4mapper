@@ -81,6 +81,11 @@ div.spacer {
     margin-bottom: 10px;
 }
 
+a.undecorated {
+    text-decoration: none;
+}
+
+
 #info_pane {
     height: 35px;
     padding-left: 150px;

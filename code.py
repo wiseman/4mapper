@@ -14,6 +14,8 @@ import itertools
 import math
 import collections
 import random
+import traceback
+import calendar
 
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp.util import run_wsgi_app
@@ -89,6 +91,7 @@ def get_key(name, secret=False):
 class FourMapperRequestHandler(webapp.RequestHandler):
   def handle_exception(self, exception, debug_mode):
     logging.error('exception: %s\n%s' % (repr(exception), str(exception)))
+    logging.error('stack trace: %s' % (traceback.format_exc()))
     if debug_mode or not isinstance(exception, FourMapperException):
       self.error(500)
       self.response.out.write(str(exception))
@@ -149,7 +152,9 @@ class MainPage(FourMapperRequestHandler):
       map_user = get_user_record(self.request.get('uid'))
       if not map_user:
         raise FourMapperException(400, 'No such user %s' % (self.request.get('uid'),))
-
+    else:
+      map_user = session_user
+      
     template_values = {'gmaps_api_key': gmaps_api_key,
                        'session_user': session_user,
                        'map_user': map_user}
@@ -265,6 +270,7 @@ class FourHistory(FourMapperRequestHandler):
 
       history = simplejson.loads(user_record.history)
       history = massage_history(history)
+      history_date = calendar.timegm(user_record.history_date.timetuple())
     else:
       #
       # Get latest history for current user.
@@ -273,11 +279,12 @@ class FourHistory(FourMapperRequestHandler):
       history = massage_history(history)
       # Store the history.
       store_user_history(session['uid'], history)
-
+      history_date = time.time()
     logging.info('history took %.3f s' % (time.time() - start_time,))
 
     self.response.headers['Content-Type'] = 'text/plain'
     result = {'checkins': history,
+              'history_date': history_date,
               'statistics': generate_history_stats(history)}
     self.response.out.write(simplejson.dumps(result))
 
