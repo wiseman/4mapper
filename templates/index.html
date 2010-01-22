@@ -377,8 +377,15 @@ Or maybe you just want to look at a map of <a href="/users">someone else's</a> c
 </div>
 
 <div id="footer">
+<div class="lfloat">
 By John Wiseman.  Uses <a href="http://code.google.com/appengine/">Google App Engine</a>, <a href="http://cartographer.visualmotive.com/">Cartographer.js</a> and the <a href="http://groups.google.com/group/foursquare-api">Foursquare API</a>.  Having a problem?  <a href="mailto:jjwiseman@gmail.com">Email me</a>.
 </div>
-
+{% if session_user %}
+<div class="rfloat">
+<a href="/logout">logout</a>
+</div>
+{% endif %}
+&nbsp;
+</div>
 </body>
 </html>
