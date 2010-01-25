@@ -127,6 +127,83 @@ def seconds_since_epoch_of_checkin(c):
   return checkin_ts
 
 
+def venues_in_common(p1, p2):
+  p1 = [v for v in p1 if p1[v] > 0]
+  p2 = [v for v in p2 if p2[v] > 0]
+  return list(set(p1).intersection(set(p2)))
+              
+class RecommendationsPage(FourMapperRequestHandler):
+  def get(self):
+    prefs = get_preferences()
+    all_venues = set()
+    for user in prefs:
+      for venue in prefs[user]:
+        all_venues.add(venue)
+      
+    similarities = []
+    USER = 760
+    for user in prefs:
+      if user != USER and len(prefs[user]) > 0:
+        similarities.append((user,
+                             sim_pearson(all_venues, prefs, USER, user),
+                             venues_in_common(prefs[USER], prefs[user])))
+    similarities = sorted(similarities, key=lambda e: e[1], reverse=True)
+    sims = []
+    for sim in similarities[0:10]:
+      sims.append({'uid': sim[0], 'score': sim[1], 'venues': sim[2]})
+    self.response.out.write(render_template('recs.html', {'similarities': sims}))
+      
+
+
+g_prefs = None
+
+def get_preferences():
+  global g_prefs
+  if g_prefs:
+    return g_prefs
+  else:
+    user_data = {}
+    users = list(History.all())
+    start_time = time.time()
+    for user in users:
+      history = massage_history(simplejson.loads(user.history))
+      checkins = collections.defaultdict(int)
+      for checkin in history:
+        if 'venue' in checkin and 'id' in checkin['venue']:
+          venue_id = checkin['venue']['id']
+          checkins[venue_id] += 1
+      user_data[user.uid] = checkins
+    g_prefs = user_data
+    return user_data
+
+import math
+
+def simplified_sim_pearson(p1, p2):
+  n = len(p1)
+  assert (n != 0)
+  sum1 = sum(p1)
+  sum2 = sum(p2)
+  m1 = float(sum1) / n
+  m2 = float(sum2) / n
+  p1mean = [(x - m1) for x in p1]
+  p2mean = [(y - m2) for y in p2]
+  numerator = sum(x * y for x, y in zip(p1mean, p2mean))
+  denominator = math.sqrt(sum(x * x for x in p1mean) * sum(y * y for y in p2mean))
+  return numerator / denominator if denominator else 0
+
+def sim_pearson(all_items, prefs, p1, p2):
+  p1 = prefs[p1]
+  p2 = prefs[p2]
+  p1_x = [p1[k] for k in all_items]
+  p2_x = [p2[k] for k in all_items]
+  if len(p1_x) > 0 and len(p2_x) > 0:
+    return simplified_sim_pearson(p1_x, p2_x)
+  else:
+    return 0.0
+  
+
+      
+  
 class MainPage(FourMapperRequestHandler):
   "This is the main app page."
   def get(self):
@@ -549,6 +626,7 @@ application = webapp.WSGIApplication([('/authorize', Authorize),
                                       ('/toggle_public', ToggleHistoryAccess),
                                       ('/4/history', FourHistory),
                                       ('/4/user', FourUser),
+                                      ('/recommend', RecommendationsPage),
                                       ('/', MainPage),
                                       ('/users', PublicUsersPage),
                                       ('/admin', AdminPage),
@@ -583,8 +661,28 @@ def merge_dicts(a, b):
 
 
 
-def main():
+def real_main():
   run_wsgi_app(application)
+
+
+def profile_main():
+    # This is the main function for profiling
+    # We've renamed our original main() above to real_main()
+    import cProfile, pstats
+    prof = cProfile.Profile()
+    prof = prof.runctx("real_main()", globals(), locals())
+    print "<pre>"
+    stats = pstats.Stats(prof)
+    stats.sort_stats("time")  # Or cumulative
+    stats.print_stats(80)  # 80 = how many to print
+    # The rest is optional.
+    # stats.print_callees()
+    # stats.print_callers()
+    print "</pre>"
+
+
+main = profile_main
     
 if __name__ == "__main__":
   main()
+
