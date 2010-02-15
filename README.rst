@@ -27,6 +27,8 @@ database).
 A user can mark their history as public, in which case they appear in
 the ``/users`` page, and their checkins can be mapped.
 
+The module 4mapper uses to talk to the Foursquare API is available as
+a separate repository: `foursquare-python`_.
 
 Screenshots
 -----------
@@ -36,7 +38,7 @@ Screenshots
 .. image:: http://github.com/wiseman/4mapper/raw/master/screenshots/4mapper-2.jpg
 
 
-Ways it doesn't work
+How it doesn't work
 --------------------
 
 4mapper does not do a good job of translating errors into readable
@@ -54,3 +56,4 @@ my first Google AppEngine application.  It's probably wrong.
 .. _Foursquare: http://foursquare.com/
 .. _Cartographer: http://cartographer.visualmotive.com/
 .. _http://4mapper.appspot.com/: http://4mapper.appspot.com/
+.. _foursquare-python: http://github.com/wiseman/foursquare-python
