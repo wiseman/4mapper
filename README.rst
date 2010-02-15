@@ -48,6 +48,10 @@ and the Google App Engine throws a DownloadError.
 There is a bug in session logic that can result in a History record
 with a null history.  The app doesn't deal with null histories well.
 
+There's a Javascript error that pops up sometimes, too; If you see
+something about a "null bbox", something has gone wrong inside the
+Cartographer library.
+
 This is the closest thing to a webapp I've written in years, and it is
 my first Google AppEngine application.  It's probably wrong.
 
