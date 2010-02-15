@@ -1,3 +1,6 @@
+| Copyright 2009 `John Wiseman`_
+| Covered by the MIT License, see `LICENSE.txt`_.
+
 4mapper
 ==========
 
@@ -61,6 +64,8 @@ my first Google AppEngine application.  It's probably wrong.
 
 
 
+.. _John Wiseman: http://twitter.com/lemonodor
+.. _LICENSE.txt: http://github.com/wiseman/4mapper/blob/master/LICENSE.txt
 .. _Foursquare: http://foursquare.com/
 .. _Cartographer: http://cartographer.visualmotive.com/
 .. _http://4mapper.appspot.com/: http://4mapper.appspot.com/
