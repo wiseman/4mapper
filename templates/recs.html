@@ -1,0 +1,27 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head>
+<title>Recommendations</title>
+</head>
+
+<body>
+<h1>Recommendations</h1>
+
+<table>
+{% for sim in similarities %}
+<tr>
+<td valign="top"><a href="http://foursquare.com/user/-{{sim.uid}}">{{sim.uid}}</a></td>
+<td valign="top">{{sim.score}}</td>
+<td valign="top">
+{% for venue in sim.venues %}
+<a href="http://foursquare.com/venue/{{venue}}">{{venue}}</a> 
+{% endfor %}
+</td>
+</tr>
+{% endfor %}
+</table>
+  
+
+<hr>
+<address></address>
+<!-- hhmts start --> Last modified: Fri Jan 22 13:55:12 PST 2010 <!-- hhmts end -->
+</body> </html>
