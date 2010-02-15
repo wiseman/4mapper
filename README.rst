@@ -4,8 +4,8 @@
 Introduction
 ------------
 
-I had been interested in mapping my `Foursquare` checkins when I found
-Chris Mueller's `Cartographer` mapping library and thought its cluster
+I had been interested in mapping my `Foursquare`_ checkins when I found
+Chris Mueller's `Cartographer`_ mapping library and thought its cluster
 maps offered some advantages over the obvious heatmap approach.  I
 wrote 4mapper to try it out.
 
