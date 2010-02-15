@@ -13,6 +13,7 @@ Once 4mapper was working I realized it would be fun to see other
 people's maps, so I put it on Google's appspot and added the ability
 to show other people your checkins.
 
+You can try 4mapper at `http://4mapper.appspot.com/`_.
 
 How it works
 ------------
@@ -52,3 +53,4 @@ my first Google AppEngine application.  It's probably wrong.
 
 .. _Foursquare: http://foursquare.com/
 .. _Cartographer: http://cartographer.visualmotive.com/
+.. _http://4mapper.appspot.com/: http://4mapper.appspot.com/
