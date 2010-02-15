@@ -52,6 +52,10 @@ There's a Javascript error that pops up sometimes, too; If you see
 something about a "null bbox", something has gone wrong inside the
 Cartographer library.
 
+It seems that Foursquare sometimes invalidates user photo URLs; Since
+4mapper only updates that info when a user authorizes it, we can end
+up trying to show bad photo URLs on the ``/users`` page.
+
 This is the closest thing to a webapp I've written in years, and it is
 my first Google AppEngine application.  It's probably wrong.
 
