@@ -606,7 +606,7 @@ def get_foursquare(session):
 
 
 # ------------------------------------------------------------
-# Start of some reccomendation stuff.
+# Start of some recommendation stuff.
 # ------------------------------------------------------------
 
 def seconds_since_epoch_of_checkin(c):
