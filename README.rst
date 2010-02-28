@@ -44,6 +44,8 @@ Screenshots
 How it doesn't work
 --------------------
 
+The site doesn't work at all in Internet Explorer.
+				   
 4mapper does not do a good job of translating errors into readable
 messages.  Usually this comes up when a Foursquare API call times out,
 and the Google App Engine throws a DownloadError.
