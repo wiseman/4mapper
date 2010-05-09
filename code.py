@@ -736,7 +736,7 @@ def profile_main():
     print "</pre>"
 
 
-main = profile_main
+main = real_main
     
 if __name__ == "__main__":
   main()
