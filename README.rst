@@ -36,9 +36,9 @@ a separate repository: `foursquare-python`_.
 Screenshots
 -----------
 
-.. image:: http://github.com/wiseman/4mapper/raw/master/screenshots/4mapper-1.jpg
+.. image:: https://github.com/wiseman/4mapper/raw/master/screenshots/4mapper-1.jpg
 
-.. image:: http://github.com/wiseman/4mapper/raw/master/screenshots/4mapper-2.jpg
+.. image:: https://github.com/wiseman/4mapper/raw/master/screenshots/4mapper-2.jpg
 
 
 How it doesn't work
